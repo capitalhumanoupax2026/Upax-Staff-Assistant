@@ -63,37 +63,105 @@ export interface SheetEmployee {
   businessUnit: string;
   role: string;
   hrbpName: string;
+  hrbpPhoto: string;
   accentColor: string;
   logoUrl: string;
   isInternal: boolean;
   consultora: string;
 }
 
-// Leer todos los empleados del sheet
+// Obtener el nombre de la primera hoja (pestaña) del spreadsheet
+async function getFirstSheetName(spreadsheetId: string): Promise<string> {
+  const sheets = await getUncachableGoogleSheetClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties.title" });
+  const title = meta.data.sheets?.[0]?.properties?.title;
+  if (!title) throw new Error("No se encontró ninguna hoja en el spreadsheet");
+  return title;
+}
+
+// Mapeo de UDN a color de acento y logo
+const UDN_BRANDING: Record<string, { accentColor: string; logoUrl: string }> = {
+  UIX:            { accentColor: "#8B5CF6", logoUrl: "uix_logo.webp" },
+  UDN:            { accentColor: "#8B5CF6", logoUrl: "uix_logo.webp" },
+  MEXACREATIVA:   { accentColor: "#C2384E", logoUrl: "mexacreativa_logo.webp" },
+  ZEUS:           { accentColor: "#0EA5E9", logoUrl: "zeus_logo.webp" },
+  HOUSEOFFILMS:   { accentColor: "#F59E0B", logoUrl: "houseoffilms_logo.webp" },
+  MASSALUD:       { accentColor: "#10B981", logoUrl: "massalud_logo.webp" },
+  NERA:           { accentColor: "#6366F1", logoUrl: "neracode_logo.webp" },
+  NERACODE:       { accentColor: "#6366F1", logoUrl: "neracode_logo.webp" },
+  MKTGUNITED:     { accentColor: "#84CC16", logoUrl: "mktgunited_logo.webp" },
+  PROMOESP:       { accentColor: "#F97316", logoUrl: "promoespacio_logo.webp" },
+  PROMOESPACIO:   { accentColor: "#F97316", logoUrl: "promoespacio_logo.webp" },
+  RESEARCHLAND:   { accentColor: "#14B8A6", logoUrl: "researchland_logo.webp" },
+  CH:             { accentColor: "#E85A29", logoUrl: "upax_logo_color.png" },
+};
+
+function getBranding(udn: string): { accentColor: string; logoUrl: string } {
+  const key = udn.toUpperCase().replace(/[\s\-_]+/g, "");
+  return UDN_BRANDING[key] || { accentColor: "#C2384E", logoUrl: "upax_logo_color.png" };
+}
+
+// Leer todos los empleados del sheet — lee encabezados primero y mapea columnas por nombre
 export async function getEmployeesFromSheet(spreadsheetId: string): Promise<SheetEmployee[]> {
   const sheets = await getUncachableGoogleSheetClient();
 
+  // Auto-detectar nombre de la primera pestaña
+  const sheetName = await getFirstSheetName(spreadsheetId);
+
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: "Empleados!A2:J1000",
+    range: `${sheetName}!A1:Z1000`,
   });
 
-  const rows = response.data.values || [];
+  const allRows = response.data.values || [];
+  if (allRows.length < 2) return [];
 
-  return rows
-    .filter((row) => row[0] && row[1]) // Requiere número y contraseña
-    .map((row) => ({
-      employeeNumber: String(row[0] || "").trim().toUpperCase(),
-      password: String(row[1] || "").trim(),
-      name: String(row[2] || "").trim(),
-      businessUnit: String(row[3] || "").trim(),
-      role: String(row[4] || "").trim(),
-      hrbpName: String(row[5] || "").trim(),
-      accentColor: String(row[6] || "#C2384E").trim(),
-      logoUrl: String(row[7] || "upax_logo_color.png").trim(),
-      isInternal: String(row[8] || "TRUE").trim().toUpperCase() !== "FALSE",
-      consultora: String(row[9] || "").trim(),
-    }));
+  // Mapear encabezados a índices (case-insensitive, quita espacios)
+  const headers = allRows[0].map((h: string) => String(h).trim().toUpperCase().replace(/[\s\-]+/g, "_"));
+  const col = (names: string[]): number => {
+    for (const name of names) {
+      const idx = headers.indexOf(name);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
+  const idxNum     = col(["NUM_EMPLEADO", "NUMERO_EMPLEADO", "EMPLEADO", "ID", "EMPLOYEE_NUMBER"]);
+  const idxPass    = col(["CONTRASENA", "PASSWORD", "CONTRASEÑA", "PASS"]);
+  const idxName    = col(["NOMBRE_COMPLETO", "NOMBRE", "NAME", "FULL_NAME"]);
+  const idxUdn     = col(["UDN", "BUSINESS_UNIT", "UNIDAD", "AREA"]);
+  const idxRole    = col(["CARGO", "PUESTO", "ROLE", "POSITION"]);
+  const idxHrbp    = col(["HRBP_NOMBRE", "HRBP", "HRBP_NAME"]);
+  const idxType    = col(["TIPO", "TYPE", "INTERNA", "INTERNAL", "IS_INTERNAL"]);
+  const idxCons    = col(["CONSULTORA", "CONSULTOR", "AGENCY"]);
+  const idxHrbpPic = col(["HRBP_FOTO", "HRBP_PHOTO", "HRBP_PIC"]);
+  const idxColor   = col(["COLOR", "ACCENT_COLOR", "COLOR_ACENTO"]);
+  const idxLogo    = col(["LOGO", "LOGO_URL", "LOGO_FILE"]);
+
+  const dataRows = allRows.slice(1);
+
+  return dataRows
+    .filter((row) => idxNum >= 0 && row[idxNum] && idxPass >= 0 && row[idxPass])
+    .map((row) => {
+      const udn = idxUdn >= 0 ? String(row[idxUdn] || "").trim() : "";
+      const branding = getBranding(udn);
+      const tipo = idxType >= 0 ? String(row[idxType] || "").trim().toUpperCase() : "INTERNO";
+      const isInternal = tipo === "INTERNO" || tipo === "TRUE" || tipo === "INTERNA";
+
+      return {
+        employeeNumber: String(row[idxNum] || "").trim().toUpperCase(),
+        password: String(row[idxPass] || "").trim(),
+        name: idxName >= 0 ? String(row[idxName] || "").trim() : "",
+        businessUnit: udn,
+        role: idxRole >= 0 ? String(row[idxRole] || "").trim() : "",
+        hrbpName: idxHrbp >= 0 ? String(row[idxHrbp] || "").trim() : "",
+        accentColor: idxColor >= 0 && row[idxColor] ? String(row[idxColor]).trim() : branding.accentColor,
+        logoUrl: idxLogo >= 0 && row[idxLogo] ? String(row[idxLogo]).trim() : branding.logoUrl,
+        isInternal,
+        consultora: idxCons >= 0 ? String(row[idxCons] || "").trim() : "",
+        hrbpPhoto: idxHrbpPic >= 0 ? String(row[idxHrbpPic] || "").trim() : "",
+      };
+    });
 }
 
 // Crear el sheet template con encabezados y datos de ejemplo
