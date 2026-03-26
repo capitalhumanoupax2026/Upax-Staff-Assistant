@@ -81,28 +81,75 @@ async function getFirstSheetName(spreadsheetId: string): Promise<string> {
 
 // Mapeo de UDN a color de acento y logo (nombres REALES de archivos en /public)
 const UDN_BRANDING: Record<string, { accentColor: string; logoUrl: string }> = {
-  UIX:            { accentColor: "#8B5CF6", logoUrl: "uix_1774489769958.webp" },
-  UDN:            { accentColor: "#8B5CF6", logoUrl: "uix_1774489769958.webp" },
-  MEXACREATIVA:   { accentColor: "#C2384E", logoUrl: "mexa_1774489769959.webp" },
-  MEXA:           { accentColor: "#C2384E", logoUrl: "mexa_1774489769959.webp" },
-  ZEUS:           { accentColor: "#0EA5E9", logoUrl: "zeus_1774489769956.png" },
-  HOUSEOFFILMS:   { accentColor: "#F59E0B", logoUrl: "house_of_films_1774489769958.webp" },
-  HOF:            { accentColor: "#F59E0B", logoUrl: "house_of_films_1774489769958.webp" },
-  MASSALUD:       { accentColor: "#10B981", logoUrl: "mas_salud_1774489769957.png" },
-  MASSALUD_:      { accentColor: "#10B981", logoUrl: "mas_salud_1774489769957.png" },
-  NERA:           { accentColor: "#6366F1", logoUrl: "nera_code_1774489769957.png" },
-  NERACODE:       { accentColor: "#6366F1", logoUrl: "nera_code_1774489769957.png" },
-  MKTGUNITED:     { accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
-  MARKETINGUNITED:{ accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
-  PROMOESP:       { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
-  PROMOESPACIO:   { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
-  RESEARCHLAND:   { accentColor: "#14B8A6", logoUrl: "researchland_1774489769958.png" },
-  CH:             { accentColor: "#E85A29", logoUrl: "upax_logo_color.png" },
+  // ── Unidades de negocio ──────────────────────────────────────────────
+  UIX:                  { accentColor: "#8B5CF6", logoUrl: "uix_1774489769958.webp" },
+  MEXACREATIVA:         { accentColor: "#C2384E", logoUrl: "mexa_1774489769959.webp" },
+  ZEUS:                 { accentColor: "#0EA5E9", logoUrl: "zeus_1774489769956.png" },
+  HOUSEOFFILMS:         { accentColor: "#F59E0B", logoUrl: "house_of_films_1774489769958.webp" },
+  MASSALUD:             { accentColor: "#10B981", logoUrl: "mas_salud_1774489769957.png" },
+  NERACODE:             { accentColor: "#6366F1", logoUrl: "nera_code_1774489769957.png" },
+  MKTGUNITED:           { accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
+  MARKETINGUNITED:      { accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
+  PROMOESPACIO:         { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
+  PROMOESPAC:           { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
+  RESEARCHLAND:         { accentColor: "#14B8A6", logoUrl: "researchland_1774489769958.png" },
+  TRADEMARKETING:       { accentColor: "#3B82F6", logoUrl: "marketing_united_1774489769958.webp" },
+  TRADE:                { accentColor: "#3B82F6", logoUrl: "marketing_united_1774489769958.webp" },
+  // ── Áreas staff ──────────────────────────────────────────────────────
+  CH:                   { accentColor: "#E85A29", logoUrl: "upax_logo_color.png" },
+  CAPITALHUMANO:        { accentColor: "#E85A29", logoUrl: "upax_logo_color.png" },
+  MARKETINGCORPORATIVO: { accentColor: "#E85A29", logoUrl: "upax_logo_1774489769957.png" },
+  MKTGCORP:             { accentColor: "#E85A29", logoUrl: "upax_logo_1774489769957.png" },
+  JURIDICO:             { accentColor: "#374151", logoUrl: "upax_logo_1774489769957.png" },
+  ADMINISTRACION:       { accentColor: "#374151", logoUrl: "upax_logo_1774489769957.png" },
+  ADMIN:                { accentColor: "#374151", logoUrl: "upax_logo_1774489769957.png" },
+  DIRECCIONGENERAL:     { accentColor: "#C2384E", logoUrl: "upax_logo_color.png" },
+  DG:                   { accentColor: "#C2384E", logoUrl: "upax_logo_color.png" },
 };
 
+// Nombres legibles por clave normalizada
+const UDN_DISPLAY: Record<string, string> = {
+  UIX:                  "UiX",
+  MEXACREATIVA:         "Mexa Creativa",
+  ZEUS:                 "Zeus",
+  HOUSEOFFILMS:         "House of Films",
+  MASSALUD:             "Más Salud",
+  NERACODE:             "Nera Code",
+  MKTGUNITED:           "Marketing United",
+  MARKETINGUNITED:      "Marketing United",
+  PROMOESPACIO:         "Promo Espacio",
+  PROMOESPAC:           "Promo Espacio",
+  RESEARCHLAND:         "Researchland",
+  TRADEMARKETING:       "Trade Marketing",
+  TRADE:                "Trade Marketing",
+  CH:                   "Capital Humano",
+  CAPITALHUMANO:        "Capital Humano",
+  MARKETINGCORPORATIVO: "Marketing Corporativo",
+  MKTGCORP:             "Marketing Corporativo",
+  JURIDICO:             "Jurídico",
+  ADMINISTRACION:       "Administración",
+  ADMIN:                "Administración",
+  DIRECCIONGENERAL:     "Dirección General",
+  DG:                   "Dirección General",
+};
+
+// Elimina tildes/acentos para normalizar comparaciones
+function stripAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeKey(udn: string): string {
+  return stripAccents(udn).toUpperCase().replace(/[\s\-_]+/g, "");
+}
+
 function getBranding(udn: string): { accentColor: string; logoUrl: string } {
-  const key = udn.toUpperCase().replace(/[\s\-_]+/g, "");
+  const key = normalizeKey(udn);
   return UDN_BRANDING[key] || { accentColor: "#C2384E", logoUrl: "upax_logo_color.png" };
+}
+
+function getDisplayName(udn: string): string {
+  const key = normalizeKey(udn);
+  return UDN_DISPLAY[key] || udn;
 }
 
 // Convierte URLs de Google Drive "view" a URLs directas de imagen
@@ -168,7 +215,7 @@ export async function getEmployeesFromSheet(spreadsheetId: string): Promise<Shee
         employeeNumber: String(row[idxNum] || "").trim().toUpperCase(),
         password: String(row[idxPass] || "").trim(),
         name: idxName >= 0 ? String(row[idxName] || "").trim() : "",
-        businessUnit: udn,
+        businessUnit: getDisplayName(udn),
         role: idxRole >= 0 ? String(row[idxRole] || "").trim() : "",
         hrbpName: idxHrbp >= 0 ? String(row[idxHrbp] || "").trim() : "",
         accentColor: idxColor >= 0 && row[idxColor] ? String(row[idxColor]).trim() : branding.accentColor,
