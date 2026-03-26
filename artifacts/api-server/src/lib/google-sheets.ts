@@ -1,15 +1,14 @@
 // Google Sheets integration via Replit connector (google-sheet:1.0.0)
 import { google } from "googleapis";
 
-let connectionSettings: any;
+// Cache del token — máximo 45 min para renovar bien antes de que expire (Google: 1h)
+let tokenCache: { token: string; fetchedAt: number } | null = null;
+const TOKEN_CACHE_MS = 45 * 60 * 1000; // 45 minutos
 
 export async function getAccessToken() {
-  if (
-    connectionSettings &&
-    connectionSettings.settings.expires_at &&
-    new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
-  ) {
-    return connectionSettings.settings.access_token;
+  // Usar cache solo si tiene menos de 45 minutos
+  if (tokenCache && Date.now() - tokenCache.fetchedAt < TOKEN_CACHE_MS) {
+    return tokenCache.token;
   }
 
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -19,31 +18,31 @@ export async function getAccessToken() {
     ? "depl " + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!xReplitToken) {
-    throw new Error("X-Replit-Token no encontrado (repl/depl)");
+  if (!hostname || !xReplitToken) {
+    throw new Error("Variables de entorno de Replit no disponibles");
   }
 
-  connectionSettings = await fetch(
-    "https://" +
-      hostname +
-      "/api/v2/connection?include_secrets=true&connector_names=google-sheet",
+  const data = await fetch(
+    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=google-sheet`,
     {
       headers: {
         Accept: "application/json",
         "X-Replit-Token": xReplitToken,
       },
     }
-  )
-    .then((res) => res.json())
-    .then((data) => data.items?.[0]);
+  ).then((res) => res.json());
 
+  const settings = data.items?.[0]?.settings;
   const accessToken =
-    connectionSettings?.settings?.access_token ||
-    connectionSettings?.settings?.oauth?.credentials?.access_token;
+    settings?.access_token ||
+    settings?.oauth?.credentials?.access_token;
 
-  if (!connectionSettings || !accessToken) {
-    throw new Error("Google Sheet no conectado");
+  if (!accessToken) {
+    throw new Error("Google Sheet no conectado o token no disponible");
   }
+
+  // Guardar en cache con timestamp
+  tokenCache = { token: accessToken, fetchedAt: Date.now() };
   return accessToken;
 }
 
