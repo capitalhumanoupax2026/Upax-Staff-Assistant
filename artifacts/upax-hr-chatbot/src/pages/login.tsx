@@ -1,19 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { Building2, KeyRound, UserCircle2, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
-
-const DEMO_USERS = [
-  { id: "UIX001", label: "UiX" },
-  { id: "MEX001", label: "Mexa Creativa" },
-  { id: "HOF001", label: "House of Films" },
-  { id: "MKT001", label: "Marketing United" },
-  { id: "ZEU001", label: "Zeus" },
-  { id: "CH001", label: "Capital Humano" },
-];
 
 export default function LoginPage() {
   const [employeeNumber, setEmployeeNumber] = useState("");
@@ -33,27 +23,26 @@ export default function LoginPage() {
     login({ data: { employeeNumber, password } });
   };
 
-  const handleQuickLogin = (empNumber: string) => {
-    login({ data: { employeeNumber: empNumber, password: "upax2024" } });
-  };
-
   return (
     <div className="min-h-screen w-full flex bg-background relative overflow-hidden">
 
       {/* Background subtle grid */}
-      <div className="absolute inset-0 z-0 opacity-[0.03]"
+      <div
+        className="absolute inset-0 z-0 opacity-[0.03]"
         style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "60px 60px"
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
         }}
       />
 
-      {/* Glow orb top-right */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full z-0 opacity-10 blur-[120px]"
+      {/* Glow orbs */}
+      <div
+        className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full z-0 opacity-10 blur-[120px]"
         style={{ background: "radial-gradient(circle, #E85A29 0%, #C2384E 60%, transparent 100%)" }}
       />
-      {/* Glow orb bottom-left */}
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full z-0 opacity-8 blur-[100px]"
+      <div
+        className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full z-0 opacity-8 blur-[100px]"
         style={{ background: "radial-gradient(circle, #C2384E 0%, transparent 70%)" }}
       />
 
@@ -67,13 +56,17 @@ export default function LoginPage() {
             transition={{ duration: 0.8 }}
             className="hidden lg:flex flex-col justify-center"
           >
-            <div className="mb-10 w-52">
-              <img
-                src={`${import.meta.env.BASE_URL}upax_logo_color.png`}
-                alt="Grupo UPAX"
-                className="w-full h-auto"
-              />
+            {/* Logo on brand-colored rounded container */}
+            <div className="mb-10 w-56">
+              <div className="rounded-2xl px-5 py-4" style={{ background: "linear-gradient(135deg, #fff 60%, #fde8df 100%)" }}>
+                <img
+                  src={`${import.meta.env.BASE_URL}upax_logo_color.png`}
+                  alt="Grupo UPAX"
+                  className="w-full h-auto object-contain"
+                />
+              </div>
             </div>
+
             <h1 className="text-5xl font-display font-bold leading-tight mb-6">
               El futuro de <br />
               <span className="upax-gradient-text">Capital Humano</span>
@@ -81,23 +74,6 @@ export default function LoginPage() {
             <p className="text-xl text-muted-foreground max-w-md leading-relaxed">
               Tu asistente personal impulsado por IA para resolver dudas, gestionar procesos y mantenerte conectado con tu UDN.
             </p>
-
-            {/* Demo quick-access chips */}
-            <div className="mt-10">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 mb-3">Acceso rápido demo</p>
-              <div className="flex flex-wrap gap-2">
-                {DEMO_USERS.map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => handleQuickLogin(u.id)}
-                    disabled={isLoggingIn}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-muted-foreground hover:border-[#E85A29]/50 hover:text-[#E85A29] hover:bg-[#E85A29]/5 transition-all disabled:opacity-50"
-                  >
-                    {u.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </motion.div>
 
           {/* Right Column: Login Form */}
@@ -108,15 +84,17 @@ export default function LoginPage() {
           >
             <div className="glass-panel p-8 sm:p-12 rounded-[2rem] relative overflow-hidden">
               {/* UPAX gradient top line */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] upax-gradient opacity-80"></div>
+              <div className="absolute top-0 left-0 right-0 h-[2px] upax-gradient" />
 
               {/* Mobile logo */}
-              <div className="lg:hidden mb-8 w-40 mx-auto">
-                <img
-                  src={`${import.meta.env.BASE_URL}upax_logo_color.png`}
-                  alt="Grupo UPAX"
-                  className="w-full h-auto"
-                />
+              <div className="lg:hidden mb-8 mx-auto w-44">
+                <div className="rounded-xl px-4 py-3" style={{ background: "linear-gradient(135deg, #fff 60%, #fde8df 100%)" }}>
+                  <img
+                    src={`${import.meta.env.BASE_URL}upax_logo_color.png`}
+                    alt="Grupo UPAX"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
               </div>
 
               <div className="text-center lg:text-left mb-10">
@@ -178,23 +156,6 @@ export default function LoginPage() {
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               </form>
-
-              {/* Mobile demo chips */}
-              <div className="lg:hidden mt-6">
-                <p className="text-xs text-center text-muted-foreground/50 mb-3">Acceso rápido demo</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {DEMO_USERS.slice(0, 4).map(u => (
-                    <button
-                      key={u.id}
-                      onClick={() => handleQuickLogin(u.id)}
-                      disabled={isLoggingIn}
-                      className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-muted-foreground hover:border-[#E85A29]/50 hover:text-[#E85A29] transition-all disabled:opacity-50"
-                    >
-                      {u.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="mt-8 pt-6 border-t border-white/8 text-center">
                 <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
