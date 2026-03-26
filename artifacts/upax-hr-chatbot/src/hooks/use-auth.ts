@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useToast } from "./use-toast";
 import type { MockEmployee } from "@/lib/mock-data";
 
-const SESSION_KEY = "upax_employee";
+const SESSION_KEY = "upax_employee_v2";
 
 function getStoredEmployee(): MockEmployee | null {
   try {
@@ -115,17 +115,14 @@ function mapEmployee(data: any): MockEmployee {
   return {
     id: 0,
     employeeNumber: data.employeeNumber ?? "",
-    password: "",
     name: data.name ?? "",
     businessUnit: data.businessUnit ?? "",
     role: data.role ?? "",
     hrbpName: data.hrbpName ?? "",
     hrbpPhoto: data.hrbpPhoto ?? "",
-    consultora: data.consultora ?? "",
+    consultora: data.consultora || null,
     isInternal: data.isInternal ?? true,
     accentColor: data.accentColor ?? "#C2384E",
     logoUrl: data.logoUrl ?? "upax_logo_color.png",
-    vacationDays: data.vacationDays ?? 12,
-    startDate: data.startDate ?? new Date().toISOString().split("T")[0],
   };
 }

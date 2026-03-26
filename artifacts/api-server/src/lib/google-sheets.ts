@@ -79,26 +79,42 @@ async function getFirstSheetName(spreadsheetId: string): Promise<string> {
   return title;
 }
 
-// Mapeo de UDN a color de acento y logo
+// Mapeo de UDN a color de acento y logo (nombres REALES de archivos en /public)
 const UDN_BRANDING: Record<string, { accentColor: string; logoUrl: string }> = {
-  UIX:            { accentColor: "#8B5CF6", logoUrl: "uix_logo.webp" },
-  UDN:            { accentColor: "#8B5CF6", logoUrl: "uix_logo.webp" },
-  MEXACREATIVA:   { accentColor: "#C2384E", logoUrl: "mexacreativa_logo.webp" },
-  ZEUS:           { accentColor: "#0EA5E9", logoUrl: "zeus_logo.webp" },
-  HOUSEOFFILMS:   { accentColor: "#F59E0B", logoUrl: "houseoffilms_logo.webp" },
-  MASSALUD:       { accentColor: "#10B981", logoUrl: "massalud_logo.webp" },
-  NERA:           { accentColor: "#6366F1", logoUrl: "neracode_logo.webp" },
-  NERACODE:       { accentColor: "#6366F1", logoUrl: "neracode_logo.webp" },
-  MKTGUNITED:     { accentColor: "#84CC16", logoUrl: "mktgunited_logo.webp" },
-  PROMOESP:       { accentColor: "#F97316", logoUrl: "promoespacio_logo.webp" },
-  PROMOESPACIO:   { accentColor: "#F97316", logoUrl: "promoespacio_logo.webp" },
-  RESEARCHLAND:   { accentColor: "#14B8A6", logoUrl: "researchland_logo.webp" },
+  UIX:            { accentColor: "#8B5CF6", logoUrl: "uix_1774489769958.webp" },
+  UDN:            { accentColor: "#8B5CF6", logoUrl: "uix_1774489769958.webp" },
+  MEXACREATIVA:   { accentColor: "#C2384E", logoUrl: "mexa_1774489769959.webp" },
+  MEXA:           { accentColor: "#C2384E", logoUrl: "mexa_1774489769959.webp" },
+  ZEUS:           { accentColor: "#0EA5E9", logoUrl: "zeus_1774489769956.png" },
+  HOUSEOFFILMS:   { accentColor: "#F59E0B", logoUrl: "house_of_films_1774489769958.webp" },
+  HOF:            { accentColor: "#F59E0B", logoUrl: "house_of_films_1774489769958.webp" },
+  MASSALUD:       { accentColor: "#10B981", logoUrl: "mas_salud_1774489769957.png" },
+  MASSALUD_:      { accentColor: "#10B981", logoUrl: "mas_salud_1774489769957.png" },
+  NERA:           { accentColor: "#6366F1", logoUrl: "nera_code_1774489769957.png" },
+  NERACODE:       { accentColor: "#6366F1", logoUrl: "nera_code_1774489769957.png" },
+  MKTGUNITED:     { accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
+  MARKETINGUNITED:{ accentColor: "#84CC16", logoUrl: "marketing_united_1774489769958.webp" },
+  PROMOESP:       { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
+  PROMOESPACIO:   { accentColor: "#F97316", logoUrl: "promo_espacio_1774489769957.png" },
+  RESEARCHLAND:   { accentColor: "#14B8A6", logoUrl: "researchland_1774489769958.png" },
   CH:             { accentColor: "#E85A29", logoUrl: "upax_logo_color.png" },
 };
 
 function getBranding(udn: string): { accentColor: string; logoUrl: string } {
   const key = udn.toUpperCase().replace(/[\s\-_]+/g, "");
   return UDN_BRANDING[key] || { accentColor: "#C2384E", logoUrl: "upax_logo_color.png" };
+}
+
+// Convierte URLs de Google Drive "view" a URLs directas de imagen
+function convertDriveUrl(url: string): string {
+  if (!url) return "";
+  // https://drive.google.com/file/d/FILE_ID/view... → thumbnail directa
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) {
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+  }
+  // Ya es directa o formato diferente
+  return url;
 }
 
 // Leer todos los empleados del sheet — lee encabezados primero y mapea columnas por nombre
@@ -159,7 +175,7 @@ export async function getEmployeesFromSheet(spreadsheetId: string): Promise<Shee
         logoUrl: idxLogo >= 0 && row[idxLogo] ? String(row[idxLogo]).trim() : branding.logoUrl,
         isInternal,
         consultora: idxCons >= 0 ? String(row[idxCons] || "").trim() : "",
-        hrbpPhoto: idxHrbpPic >= 0 ? String(row[idxHrbpPic] || "").trim() : "",
+        hrbpPhoto: idxHrbpPic >= 0 ? convertDriveUrl(String(row[idxHrbpPic] || "").trim()) : "",
       };
     });
 }

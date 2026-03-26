@@ -9,6 +9,7 @@ declare module "express-session" {
       businessUnit: string;
       role: string;
       hrbpName: string;
+      hrbpPhoto: string;
       accentColor: string;
       logoUrl: string;
       isInternal: boolean;
@@ -55,6 +56,7 @@ router.post("/auth/login", async (req, res) => {
       businessUnit: employee.businessUnit,
       role: employee.role,
       hrbpName: employee.hrbpName,
+      hrbpPhoto: employee.hrbpPhoto,
       accentColor: employee.accentColor,
       logoUrl: employee.logoUrl,
       isInternal: employee.isInternal,
