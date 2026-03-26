@@ -3,7 +3,7 @@ import { google } from "googleapis";
 
 let connectionSettings: any;
 
-async function getAccessToken() {
+export async function getAccessToken() {
   if (
     connectionSettings &&
     connectionSettings.settings.expires_at &&
@@ -152,15 +152,26 @@ function getDisplayName(udn: string): string {
   return UDN_DISPLAY[key] || udn;
 }
 
-// Convierte URLs de Google Drive "view" a URLs directas de imagen
+// Convierte URLs de Google Drive a proxy autenticado del servidor
+// Soporta: /file/d/ID/view, /open?id=ID, /uc?id=ID
+export function extractDriveFileId(url: string): string {
+  if (!url) return "";
+  // /file/d/FILE_ID/...
+  let m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  // ?id=FILE_ID
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return "";
+}
+
 function convertDriveUrl(url: string): string {
   if (!url) return "";
-  // https://drive.google.com/file/d/FILE_ID/view... → thumbnail directa
-  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (match) {
-    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+  const fileId = extractDriveFileId(url);
+  if (fileId) {
+    // Proxy autenticado — resuelto por el servidor con OAuth
+    return `/api/hrbp-photo?id=${fileId}`;
   }
-  // Ya es directa o formato diferente
   return url;
 }
 

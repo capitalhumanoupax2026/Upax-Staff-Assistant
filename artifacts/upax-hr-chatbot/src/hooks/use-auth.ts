@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useToast } from "./use-toast";
 import type { MockEmployee } from "@/lib/mock-data";
 
-const SESSION_KEY = "upax_employee_v2";
+const SESSION_KEY = "upax_employee_v3";
 
 function getStoredEmployee(): MockEmployee | null {
   try {
