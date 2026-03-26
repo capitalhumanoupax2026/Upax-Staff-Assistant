@@ -1,62 +1,56 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useGetCurrentEmployee, 
-  useLogin, 
-  useLogout,
-  getGetCurrentEmployeeQueryKey 
-} from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "./use-toast";
+import { mockLogin, getMockEmployee, setMockEmployee, clearMockEmployee, type MockEmployee } from "@/lib/mock-data";
 
 export function useAuth() {
   const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [user, setUser] = useState<MockEmployee | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const { data: user, isLoading, error } = useGetCurrentEmployee({
-    query: {
-      retry: false,
-      staleTime: Infinity,
-    }
-  });
+  useEffect(() => {
+    const stored = getMockEmployee();
+    setUser(stored);
+    setIsLoading(false);
+  }, []);
 
-  const loginMutation = useLogin({
-    mutation: {
-      onSuccess: (data) => {
-        // Update cache manually or invalidate
-        queryClient.setQueryData(getGetCurrentEmployeeQueryKey(), data.employee);
+  const login = ({ data }: { data: { employeeNumber: string; password: string } }) => {
+    setIsLoggingIn(true);
+    setTimeout(() => {
+      const employee = mockLogin(data.employeeNumber, data.password);
+      if (employee) {
+        setMockEmployee(employee);
+        setUser(employee);
         toast({
           title: "Acceso concedido",
-          description: `Bienvenido, ${data.employee.name}`,
+          description: `Bienvenido, ${employee.name}`,
         });
         setLocation("/");
-      },
-      onError: (err: any) => {
+      } else {
         toast({
           variant: "destructive",
           title: "Error de acceso",
-          description: err?.response?.data?.message || "Credenciales inválidas. Verifica tu número de empleado.",
+          description: "Número de empleado o contraseña incorrectos.",
         });
       }
-    }
-  });
+      setIsLoggingIn(false);
+    }, 600);
+  };
 
-  const logoutMutation = useLogout({
-    mutation: {
-      onSuccess: () => {
-        queryClient.setQueryData(getGetCurrentEmployeeQueryKey(), null);
-        queryClient.clear();
-        setLocation("/login");
-      }
-    }
-  });
+  const logout = () => {
+    clearMockEmployee();
+    setUser(null);
+    setLocation("/login");
+  };
 
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
-    login: loginMutation.mutate,
-    isLoggingIn: loginMutation.isPending,
-    logout: logoutMutation.mutate,
+    login,
+    isLoggingIn,
+    logout,
   };
 }
