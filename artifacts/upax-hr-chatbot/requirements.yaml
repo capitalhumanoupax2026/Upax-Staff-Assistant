@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "For premium, fluid animations and page transitions"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes without style conflicts"
+  "lucide-react": "Beautiful, consistent icon set"
+  "date-fns": "For formatting chat timestamps"
+
+images:
+  - path: "artifacts/upax-hr-chatbot/public/images/login-bg.png"
+    description: "Futuristic dark tech background with subtle glowing data streams and deep geometric patterns, almost black and dark navy blue, suitable for a premium corporate login screen."
+    aspect_ratio: "16:9"
+  - path: "artifacts/upax-hr-chatbot/public/images/ai-avatar.png"
+    description: "Sleek, futuristic minimal AI assistant avatar, glowing holographic core on dark background, high-end 3D render."
+    aspect_ratio: "1:1"
+
+notes:
+  - "Assuming @workspace/api-client-react provides ready-to-use hooks as defined in the provided api.ts"
+  - "Theme heavily relies on CSS variables updated dynamically via inline styles for the UDN accent colors."

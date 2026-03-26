@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "UPAX Capital Humano Chatbot"
+version = "1.0.0"
+id = "artifacts/upax-hr-chatbot"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20834
+
+[services.development]
+run = "pnpm --filter @workspace/upax-hr-chatbot run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/upax-hr-chatbot", "run", "build" ]
+publicDir = "artifacts/upax-hr-chatbot/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20834"
+BASE_PATH = "/"
