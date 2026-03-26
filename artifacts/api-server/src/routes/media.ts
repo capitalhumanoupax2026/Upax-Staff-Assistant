@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import { getAccessToken } from "../lib/google-sheets.js";
 
 const router: IRouter = Router();
 
-// Proxy autenticado para fotos de Google Drive
+// Proxy para fotos de Google Drive compartidas públicamente
+// Resuelve el problema de CORS desde el browser — el servidor hace el fetch sin restricciones
 // GET /api/hrbp-photo?id=FILE_ID
 router.get("/hrbp-photo", async (req, res) => {
   const fileId = req.query.id as string;
@@ -13,29 +13,40 @@ router.get("/hrbp-photo", async (req, res) => {
   }
 
   try {
-    const accessToken = await getAccessToken();
+    // Google Drive direct download URL para archivos compartidos públicamente
+    const driveUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
 
-    const driveRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
+    const driveRes = await fetch(driveUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; UPAX-HR-Bot/1.0)",
+        "Accept": "image/*,*/*",
+      },
+      redirect: "follow",
+    });
 
     if (!driveRes.ok) {
-      res.status(driveRes.status).json({ error: "No se pudo obtener la imagen de Drive" });
+      console.error(`Drive returned ${driveRes.status} for file ${fileId}`);
+      res.status(driveRes.status).json({ error: "No se pudo obtener la imagen" });
       return;
     }
 
     const contentType = driveRes.headers.get("content-type") || "image/jpeg";
+
+    // Si Google devuelve HTML (página de error o login), rechazar
+    if (contentType.includes("text/html")) {
+      console.warn(`Drive returned HTML for file ${fileId} — el archivo no es público o requiere login`);
+      res.status(403).json({ error: "La imagen no es accesible públicamente" });
+      return;
+    }
+
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=86400");
 
     const arrayBuffer = await driveRes.arrayBuffer();
     res.send(Buffer.from(arrayBuffer));
-  } catch (err) {
-    console.error("hrbp-photo proxy error:", err);
-    res.status(500).json({ error: "Error interno al obtener foto" });
+  } catch (err: any) {
+    console.error("hrbp-photo proxy error:", err?.message || err);
+    res.status(500).json({ error: "Error al obtener la imagen" });
   }
 });
 
