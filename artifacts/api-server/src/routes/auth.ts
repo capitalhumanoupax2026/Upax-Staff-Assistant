@@ -1,10 +1,19 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { getEmployeesFromSheet } from "../lib/google-sheets.js";
 
 declare module "express-session" {
   interface SessionData {
-    employeeId: number;
+    employee: {
+      employeeNumber: string;
+      name: string;
+      businessUnit: string;
+      role: string;
+      hrbpName: string;
+      accentColor: string;
+      logoUrl: string;
+      isInternal: boolean;
+      consultora: string;
+    };
   }
 }
 
@@ -18,39 +27,45 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
 
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  if (!spreadsheetId) {
+    res.status(503).json({
+      error: "not_configured",
+      message: "El directorio de empleados no está configurado. Contacta a tu administrador.",
+    });
+    return;
+  }
+
   try {
-    const employees = await db
-      .select()
-      .from(employeesTable)
-      .where(eq(employeesTable.employeeNumber, String(employeeNumber)));
+    const employees = await getEmployeesFromSheet(spreadsheetId);
+    const employee = employees.find(
+      (e) =>
+        e.employeeNumber === String(employeeNumber).trim().toUpperCase() &&
+        e.password === String(password).trim()
+    );
 
-    const employee = employees[0];
-
-    if (!employee || employee.password !== String(password)) {
+    if (!employee) {
       res.status(401).json({ error: "unauthorized", message: "Número de empleado o contraseña incorrectos" });
       return;
     }
 
-    req.session.employeeId = employee.id;
+    const sessionEmployee = {
+      employeeNumber: employee.employeeNumber,
+      name: employee.name,
+      businessUnit: employee.businessUnit,
+      role: employee.role,
+      hrbpName: employee.hrbpName,
+      accentColor: employee.accentColor,
+      logoUrl: employee.logoUrl,
+      isInternal: employee.isInternal,
+      consultora: employee.consultora,
+    };
 
-    res.json({
-      employee: {
-        id: employee.id,
-        employeeNumber: employee.employeeNumber,
-        name: employee.name,
-        businessUnit: employee.businessUnit,
-        role: employee.role,
-        hrbpName: employee.hrbpName,
-        hrbpPhoto: employee.hrbpPhoto,
-        consultora: employee.consultora,
-        isInternal: employee.isInternal,
-        accentColor: employee.accentColor,
-        logoUrl: employee.logoUrl,
-      },
-      message: "Login exitoso",
-    });
-  } catch (err) {
-    req.log.error({ err }, "Error during login");
+    req.session.employee = sessionEmployee;
+
+    res.json({ employee: sessionEmployee, message: "Login exitoso" });
+  } catch (err: any) {
+    req.log.error({ err }, "Error durante login");
     res.status(500).json({ error: "server_error", message: "Error interno del servidor" });
   }
 });
@@ -61,43 +76,12 @@ router.post("/auth/logout", (req, res) => {
   });
 });
 
-router.get("/auth/me", async (req, res) => {
-  if (!req.session.employeeId) {
+router.get("/auth/me", (req, res) => {
+  if (!req.session.employee) {
     res.status(401).json({ error: "unauthorized", message: "No has iniciado sesión" });
     return;
   }
-
-  try {
-    const employees = await db
-      .select()
-      .from(employeesTable)
-      .where(eq(employeesTable.id, req.session.employeeId));
-
-    const employee = employees[0];
-
-    if (!employee) {
-      req.session.destroy(() => {});
-      res.status(401).json({ error: "unauthorized", message: "Sesión inválida" });
-      return;
-    }
-
-    res.json({
-      id: employee.id,
-      employeeNumber: employee.employeeNumber,
-      name: employee.name,
-      businessUnit: employee.businessUnit,
-      role: employee.role,
-      hrbpName: employee.hrbpName,
-      hrbpPhoto: employee.hrbpPhoto,
-      consultora: employee.consultora,
-      isInternal: employee.isInternal,
-      accentColor: employee.accentColor,
-      logoUrl: employee.logoUrl,
-    });
-  } catch (err) {
-    req.log.error({ err }, "Error fetching employee");
-    res.status(500).json({ error: "server_error", message: "Error interno del servidor" });
-  }
+  res.json(req.session.employee);
 });
 
 export default router;
