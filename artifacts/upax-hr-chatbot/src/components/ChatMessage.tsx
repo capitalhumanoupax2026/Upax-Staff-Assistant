@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { cn, formatTime } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ interface ChatMessageProps {
 
 export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const [hrbpImgError, setHrbpImgError] = useState(false);
 
   return (
     <motion.div
@@ -33,17 +34,24 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
             </div>
           ) : (
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center border shadow-sm flex-shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--dyn-accent) 10%, white) 100%)",
-                borderColor: `color-mix(in srgb, ${employee.accentColor} 30%, transparent)`,
-              }}
+              className="w-7 h-7 rounded-full overflow-hidden border-2 flex items-center justify-center shadow-sm flex-shrink-0"
+              style={{ borderColor: `color-mix(in srgb, ${employee.accentColor} 40%, #e5e7eb)` }}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}${employee.logoUrl.replace(/^\//, "")}`}
-                alt={employee.businessUnit}
-                className="w-4 h-4 object-contain"
-              />
+              {employee.hrbpPhoto && !hrbpImgError ? (
+                <img
+                  src={employee.hrbpPhoto}
+                  alt={employee.hrbpName}
+                  className="w-full h-full object-cover"
+                  onError={() => setHrbpImgError(true)}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold"
+                  style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${employee.accentColor} 80%, #000) 0%, ${employee.accentColor} 100%)` }}
+                >
+                  {employee.hrbpName?.charAt(0) || "H"}
+                </div>
+              )}
             </div>
           )}
         </div>

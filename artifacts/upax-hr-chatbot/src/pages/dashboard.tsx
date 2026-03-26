@@ -4,11 +4,11 @@ import { useChat } from "@/hooks/use-chat";
 import { useLocation } from "wouter";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { QuickActions } from "@/components/QuickActions";
+import { CategoryMenu } from "@/components/CategoryMenu";
 import { ChatMessageBubble } from "@/components/ChatMessage";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Send, LogOut, Loader2, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { HRBPAvatar } from "@/components/HRBPAvatar";
+import { Send, LogOut, Loader2, Sparkles, Radio } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [inputValue, setInputValue] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,9 +24,9 @@ export default function Dashboard() {
   }, [isLoading, isAuthenticated, setLocation]);
 
   useEffect(() => {
-    if (user && !sessionStorage.getItem(`welcome_seen_${user.id}`)) {
+    if (user && !sessionStorage.getItem(`welcome_seen_${user.employeeNumber}`)) {
       setShowWelcome(true);
-      sessionStorage.setItem(`welcome_seen_${user.id}`, "true");
+      sessionStorage.setItem(`welcome_seen_${user.employeeNumber}`, "true");
     }
   }, [user]);
 
@@ -46,7 +47,21 @@ export default function Dashboard() {
     if (!inputValue.trim() || isSending) return;
     sendMessage(inputValue);
     setInputValue("");
+    setActiveCategory(null);
   };
+
+  const handleCategoryClick = (category: string) => {
+    setActiveCategory(prev => prev === category ? null : category);
+  };
+
+  const handleSubQuestion = (message: string, category: string) => {
+    sendMessage(message, category);
+    setActiveCategory(null);
+  };
+
+  const consultoraBadge = user.isInternal
+    ? { label: "UPAX", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" }
+    : { label: user.consultora || "Consultora", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" };
 
   return (
     <div
@@ -57,16 +72,18 @@ export default function Dashboard() {
 
       {/* HEADER */}
       <header className="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm">
-        {/* Accent top stripe */}
         <div className="h-0.5 w-full accent-gradient" />
 
         <div className="flex h-12 items-center justify-between px-3 sm:px-5 max-w-7xl mx-auto w-full">
 
-          {/* Logo UDN + info */}
+          {/* Left: Logo + greeting */}
           <div className="flex items-center gap-2.5">
             <div
               className="h-8 px-2 flex items-center justify-center rounded-lg border"
-              style={{ background: "linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--dyn-accent) 8%, white) 100%)", borderColor: "color-mix(in srgb, var(--dyn-accent) 20%, transparent)" }}
+              style={{
+                background: "linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--dyn-accent) 8%, white) 100%)",
+                borderColor: "color-mix(in srgb, var(--dyn-accent) 20%, transparent)",
+              }}
             >
               <img
                 src={`${import.meta.env.BASE_URL}${user.logoUrl.replace(/^\//, "")}`}
@@ -76,9 +93,12 @@ export default function Dashboard() {
             </div>
 
             <div className="flex flex-col leading-none">
-              <span className="text-[11px] text-gray-400">Hola, <span className="font-semibold text-gray-800">{user.name.split(" ")[0]}</span></span>
+              <span className="text-[11px] text-gray-400">
+                Hola, <span className="font-semibold text-gray-800">{user.name.split(" ")[0]}</span>
+              </span>
             </div>
 
+            {/* UDN badge */}
             <div
               className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
               style={{ background: `color-mix(in srgb, var(--dyn-accent) 12%, white)`, color: user.accentColor }}
@@ -86,21 +106,24 @@ export default function Dashboard() {
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: user.accentColor }} />
               {user.businessUnit}
             </div>
+
+            {/* Consultora badge */}
+            <div className={`hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${consultoraBadge.bg} ${consultoraBadge.text} ${consultoraBadge.border}`}>
+              {consultoraBadge.label}
+            </div>
           </div>
 
-          {/* Right */}
+          {/* Right: En Vivo + logout */}
           <div className="flex items-center gap-2">
-            <div className="hidden sm:block">
-              {user.isInternal ? (
-                <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Gestión Interna UPAX
-                </span>
-              ) : (
-                <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  Consultora: {user.consultora}
-                </span>
-              )}
+            {/* En Vivo */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              En Vivo · 24/7
             </div>
+
             <button
               onClick={() => logout()}
               title="Cerrar sesión"
@@ -115,7 +138,7 @@ export default function Dashboard() {
       {/* MAIN */}
       <main className="flex-1 overflow-hidden flex flex-col max-w-5xl mx-auto w-full px-3 sm:px-6">
 
-        {/* Messages */}
+        {/* Messages / Empty state */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
 
           {messages.length === 0 && (
@@ -123,33 +146,20 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="h-full flex flex-col items-center justify-center text-center space-y-8"
+              className="h-full flex flex-col items-center justify-center text-center space-y-6"
             >
-              {/* UDN Logo hero */}
-              <div className="relative">
-                {/* Glow rings */}
-                <div
-                  className="absolute inset-[-20px] rounded-3xl opacity-20 blur-2xl"
-                  style={{ background: `radial-gradient(circle, ${user.accentColor} 0%, transparent 70%)` }}
+              {/* HRBP Avatar — protagonista */}
+              <div className="flex flex-col items-center gap-3">
+                <HRBPAvatar
+                  photoUrl={user.hrbpPhoto}
+                  name={user.hrbpName}
+                  accentColor={user.accentColor}
+                  isTalking={isSending}
+                  size="lg"
                 />
-                <div
-                  className="absolute inset-[-8px] rounded-2xl opacity-10"
-                  style={{ background: user.accentColor }}
-                />
-                {/* Logo container */}
-                <div
-                  className="relative w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl border"
-                  style={{
-                    background: "linear-gradient(145deg, #ffffff 60%, color-mix(in srgb, var(--dyn-accent) 12%, white) 100%)",
-                    borderColor: `color-mix(in srgb, ${user.accentColor} 25%, transparent)`,
-                    boxShadow: `0 20px 60px -10px color-mix(in srgb, ${user.accentColor} 35%, transparent)`,
-                  }}
-                >
-                  <img
-                    src={`${import.meta.env.BASE_URL}${user.logoUrl.replace(/^\//, "")}`}
-                    alt={user.businessUnit}
-                    className="w-12 h-12 object-contain"
-                  />
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Tu HRBP</p>
+                  <p className="text-sm font-bold text-gray-800">{user.hrbpName || "Capital Humano"}</p>
                 </div>
               </div>
 
@@ -171,11 +181,10 @@ export default function Dashboard() {
                   ¿En qué te puedo ayudar hoy?
                 </h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Estoy aquí para resolver tus dudas sobre vacaciones, nómina, beneficios y políticas internas.
+                  Selecciona una categoría o escribe tu duda sobre vacaciones, nómina, beneficios y más.
                 </p>
               </div>
 
-              {/* Decorative accent line */}
               <div className="flex gap-1.5">
                 <span className="w-8 h-1 rounded-full accent-gradient" />
                 <span className="w-3 h-1 rounded-full" style={{ background: `color-mix(in srgb, ${user.accentColor} 40%, transparent)` }} />
@@ -189,9 +198,16 @@ export default function Dashboard() {
               <ChatMessageBubble key={msg.id || i} message={msg} employee={user} />
             ))}
 
-            {/* Typing indicator */}
+            {/* Typing indicator with HRBP avatar */}
             {isSending && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start mb-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start mb-4 items-end gap-3">
+                <HRBPAvatar
+                  photoUrl={user.hrbpPhoto}
+                  name={user.hrbpName}
+                  accentColor={user.accentColor}
+                  isTalking={true}
+                  size="sm"
+                />
                 <div
                   className="flex gap-1.5 items-center px-5 py-4 rounded-2xl rounded-bl-sm border shadow-sm"
                   style={{
@@ -212,7 +228,19 @@ export default function Dashboard() {
         {/* INPUT AREA */}
         <div className="py-3 border-t border-gray-100">
           <div className="space-y-2">
-            <QuickActions onActionClick={(text, cat) => sendMessage(text, cat)} />
+
+            {/* Category sub-questions */}
+            <CategoryMenu
+              category={activeCategory}
+              accentColor={user.accentColor}
+              onSelect={handleSubQuestion}
+              onDismiss={() => setActiveCategory(null)}
+            />
+
+            <QuickActions
+              onActionClick={handleCategoryClick}
+              activeCategory={activeCategory}
+            />
 
             <form
               onSubmit={handleSend}
