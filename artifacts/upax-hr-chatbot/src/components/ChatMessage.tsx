@@ -1,4 +1,5 @@
 import React from "react";
+import ReactMarkdown from "react-markdown";
 import { cn, formatTime } from "@/lib/utils";
 import { motion } from "framer-motion";
 import type { ChatMessage } from "@/hooks/use-chat";
@@ -17,12 +18,12 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className={cn("flex w-full mb-4", isUser ? "justify-end" : "justify-start")}
+      className={cn("flex w-full mb-3", isUser ? "justify-end" : "justify-start")}
     >
-      <div className={cn("flex max-w-[82%] sm:max-w-[70%] gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("flex max-w-[80%] sm:max-w-[68%] gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
 
-        {/* Avatar dot */}
-        <div className="mt-auto mb-1 hidden sm:block">
+        {/* Avatar */}
+        <div className="mt-auto mb-1 flex-shrink-0 hidden sm:block">
           {isUser ? (
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
@@ -32,9 +33,9 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
             </div>
           ) : (
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center border shadow-sm"
+              className="w-7 h-7 rounded-full flex items-center justify-center border shadow-sm flex-shrink-0"
               style={{
-                background: "linear-gradient(135deg, #ffffff 60%, color-mix(in srgb, var(--dyn-accent) 10%, white) 100%)",
+                background: "linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--dyn-accent) 10%, white) 100%)",
                 borderColor: `color-mix(in srgb, ${employee.accentColor} 30%, transparent)`,
               }}
             >
@@ -51,7 +52,7 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
         <div className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
           <div
             className={cn(
-              "px-5 py-3.5 rounded-2xl text-sm md:text-base leading-relaxed relative shadow-sm",
+              "px-4 py-3 rounded-2xl text-sm leading-relaxed relative shadow-sm",
               isUser ? "text-white rounded-br-sm" : "bg-white text-gray-800 rounded-bl-sm border"
             )}
             style={
@@ -63,17 +64,32 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
             {/* Accent left border on assistant */}
             {!isUser && (
               <div
-                className="absolute top-0 left-0 w-1 h-full rounded-l-2xl"
+                className="absolute top-0 left-0 w-[3px] h-full rounded-l-2xl"
                 style={{ background: employee.accentColor }}
               />
             )}
 
-            <p className="whitespace-pre-wrap pl-1">{message.content}</p>
+            {/* Markdown content */}
+            <div className={cn("pl-1 prose prose-sm max-w-none", isUser ? "prose-invert" : "")}>
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  ul: ({ children }) => <ul className="list-none pl-0 space-y-0.5 my-1">{children}</ul>,
+                  li: ({ children }) => <li className="flex gap-1.5 items-start"><span className="opacity-40 mt-1">·</span><span>{children}</span></li>,
+                  h2: ({ children }) => <h2 className="font-bold text-sm mb-1">{children}</h2>,
+                  h3: ({ children }) => <h3 className="font-semibold text-sm mb-0.5">{children}</h3>,
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
 
-            <div className={cn("flex items-center gap-3 mt-3 pl-1", isUser ? "justify-end" : "justify-between")}>
+            {/* Footer */}
+            <div className={cn("flex items-center gap-2 mt-2 pl-1", isUser ? "justify-end" : "justify-between")}>
               {!isUser && (
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
                   style={{
                     background: `color-mix(in srgb, ${employee.accentColor} 10%, white)`,
                     color: employee.accentColor,

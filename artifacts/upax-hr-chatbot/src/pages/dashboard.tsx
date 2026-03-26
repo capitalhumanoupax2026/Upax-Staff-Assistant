@@ -58,30 +58,29 @@ export default function Dashboard() {
       {/* HEADER */}
       <header className="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm">
         {/* Accent top stripe */}
-        <div className="h-1 w-full accent-gradient" />
+        <div className="h-0.5 w-full accent-gradient" />
 
-        <div className="flex h-15 items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full py-3">
+        <div className="flex h-12 items-center justify-between px-3 sm:px-5 max-w-7xl mx-auto w-full">
 
-          {/* Logo UDN */}
-          <div className="flex items-center gap-4">
+          {/* Logo UDN + info */}
+          <div className="flex items-center gap-2.5">
             <div
-              className="h-10 px-3 flex items-center justify-center rounded-xl border"
+              className="h-8 px-2 flex items-center justify-center rounded-lg border"
               style={{ background: "linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--dyn-accent) 8%, white) 100%)", borderColor: "color-mix(in srgb, var(--dyn-accent) 20%, transparent)" }}
             >
               <img
                 src={`${import.meta.env.BASE_URL}${user.logoUrl.replace(/^\//, "")}`}
                 alt={user.businessUnit}
-                className="max-h-7 w-auto object-contain"
+                className="max-h-5 w-auto object-contain"
               />
             </div>
 
-            <div className="hidden md:flex flex-col">
-              <span className="text-xs text-gray-400 font-medium leading-none mb-0.5">Hola,</span>
-              <span className="text-sm font-semibold text-gray-900">{user.name.split(" ")[0]}</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-[11px] text-gray-400">Hola, <span className="font-semibold text-gray-800">{user.name.split(" ")[0]}</span></span>
             </div>
 
             <div
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
               style={{ background: `color-mix(in srgb, var(--dyn-accent) 12%, white)`, color: user.accentColor }}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: user.accentColor }} />
@@ -90,14 +89,14 @@ export default function Dashboard() {
           </div>
 
           {/* Right */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="hidden sm:block">
               {user.isInternal ? (
-                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   Gestión Interna UPAX
                 </span>
               ) : (
-                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Consultora: {user.consultora}
                 </span>
               )}
@@ -105,7 +104,7 @@ export default function Dashboard() {
             <button
               onClick={() => logout()}
               title="Cerrar sesión"
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -114,10 +113,10 @@ export default function Dashboard() {
       </header>
 
       {/* MAIN */}
-      <main className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full px-4">
+      <main className="flex-1 overflow-hidden flex flex-col max-w-5xl mx-auto w-full px-3 sm:px-6">
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar py-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
 
           {messages.length === 0 && (
             <motion.div
@@ -139,7 +138,7 @@ export default function Dashboard() {
                 />
                 {/* Logo container */}
                 <div
-                  className="relative w-28 h-28 rounded-3xl flex items-center justify-center shadow-xl border"
+                  className="relative w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl border"
                   style={{
                     background: "linear-gradient(145deg, #ffffff 60%, color-mix(in srgb, var(--dyn-accent) 12%, white) 100%)",
                     borderColor: `color-mix(in srgb, ${user.accentColor} 25%, transparent)`,
@@ -149,7 +148,7 @@ export default function Dashboard() {
                   <img
                     src={`${import.meta.env.BASE_URL}${user.logoUrl.replace(/^\//, "")}`}
                     alt={user.businessUnit}
-                    className="w-16 h-16 object-contain"
+                    className="w-12 h-12 object-contain"
                   />
                 </div>
               </div>
@@ -168,11 +167,11 @@ export default function Dashboard() {
               </div>
 
               <div className="max-w-sm">
-                <h2 className="text-2xl font-display font-bold text-gray-900 mb-3">
+                <h2 className="text-xl font-display font-bold text-gray-900 mb-2">
                   ¿En qué te puedo ayudar hoy?
                 </h2>
-                <p className="text-gray-500 leading-relaxed">
-                  Estoy aquí para resolver tus dudas sobre vacaciones, nómina, beneficios y políticas internas de tu UDN.
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Estoy aquí para resolver tus dudas sobre vacaciones, nómina, beneficios y políticas internas.
                 </p>
               </div>
 
@@ -211,8 +210,8 @@ export default function Dashboard() {
         </div>
 
         {/* INPUT AREA */}
-        <div className="py-4 sm:py-6 border-t border-gray-100">
-          <div className="space-y-3">
+        <div className="py-3 border-t border-gray-100">
+          <div className="space-y-2">
             <QuickActions onActionClick={(text, cat) => sendMessage(text, cat)} />
 
             <form
@@ -224,7 +223,7 @@ export default function Dashboard() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Escribe tu duda o solicitud aquí..."
-                className="flex-1 px-6 h-14 text-base bg-transparent outline-none text-gray-800 placeholder:text-gray-400"
+                className="flex-1 px-4 h-11 text-sm bg-transparent outline-none text-gray-800 placeholder:text-gray-400"
                 disabled={isSending}
               />
               <div className="pr-2">
