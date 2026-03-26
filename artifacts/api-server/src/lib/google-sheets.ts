@@ -46,6 +46,11 @@ export async function getAccessToken() {
   return accessToken;
 }
 
+// Invalida el cache del token (útil cuando Google retorna 401)
+export function invalidateTokenCache() {
+  tokenCache = null;
+}
+
 // WARNING: Nunca cachear este cliente. Los tokens expiran.
 export async function getUncachableGoogleSheetClient() {
   const accessToken = await getAccessToken();
@@ -174,8 +179,21 @@ function convertDriveUrl(url: string): string {
   return url;
 }
 
-// Leer todos los empleados del sheet — lee encabezados primero y mapea columnas por nombre
+// Leer todos los empleados del sheet — con retry automático si el token expiró (401)
 export async function getEmployeesFromSheet(spreadsheetId: string): Promise<SheetEmployee[]> {
+  try {
+    return await _readEmployeesFromSheet(spreadsheetId);
+  } catch (err: any) {
+    // Si el token expiró, invalidar cache y reintentar una vez
+    if (err?.code === 401 || err?.status === 401) {
+      invalidateTokenCache();
+      return await _readEmployeesFromSheet(spreadsheetId);
+    }
+    throw err;
+  }
+}
+
+async function _readEmployeesFromSheet(spreadsheetId: string): Promise<SheetEmployee[]> {
   const sheets = await getUncachableGoogleSheetClient();
 
   // Auto-detectar nombre de la primera pestaña
