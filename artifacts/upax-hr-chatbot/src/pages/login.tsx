@@ -31,7 +31,7 @@ export default function LoginPage() {
       <div className="absolute inset-0 z-0">
         <img 
           src={`${import.meta.env.BASE_URL}images/login-bg.png`} 
-          alt="Abstract Tech Background" 
+          alt="Fondo tecnológico abstracto" 
           className="w-full h-full object-cover opacity-40"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
