@@ -1,8 +1,138 @@
 import { Router, type IRouter } from "express";
 import { db, chatMessagesTable, employeesTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
+import { getUncachableGoogleSheetClient } from "../lib/google-sheets.js";
 
 const router: IRouter = Router();
+
+// ---------------------------------------------------------------------------
+// RESPUESTAS DESDE GOOGLE SHEETS — DB_RESPUESTAS
+// Lee la hoja y selecciona la respuesta más específica según UDN/TIPO/CONSULTORA
+// Cache de 3 minutos para que los cambios en el Sheet se reflejen rápido
+// ---------------------------------------------------------------------------
+
+interface SheetResponse {
+  idKey: string;
+  categoria: string;
+  preguntaTexto: string;
+  udn: string;
+  tipo: string;
+  consultora: string;
+  respuesta: string;
+}
+
+let sheetResponseCache: { data: SheetResponse[]; loadedAt: number } | null = null;
+const SHEET_RESPONSE_CACHE_MS = 3 * 60 * 1000; // 3 minutos
+
+async function loadSheetResponses(): Promise<SheetResponse[]> {
+  if (sheetResponseCache && Date.now() - sheetResponseCache.loadedAt < SHEET_RESPONSE_CACHE_MS) {
+    return sheetResponseCache.data;
+  }
+
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  if (!spreadsheetId) return [];
+
+  try {
+    const sheets = await getUncachableGoogleSheetClient();
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "DB_RESPUESTAS!A2:G2000",
+    });
+
+    const rows = result.data.values || [];
+    const data: SheetResponse[] = rows
+      .filter((row) => row[0] && row[6]) // requiere ID_KEY y RESPUESTA
+      .map((row) => ({
+        idKey:         String(row[0] || "").trim().toUpperCase(),
+        categoria:     String(row[1] || "").trim().toUpperCase(),
+        preguntaTexto: String(row[2] || "").trim(),
+        udn:           String(row[3] || "").trim().toUpperCase(),
+        tipo:          String(row[4] || "").trim().toUpperCase(),
+        consultora:    String(row[5] || "").trim().toUpperCase(),
+        respuesta:     String(row[6] || "").trim(),
+      }));
+
+    sheetResponseCache = { data, loadedAt: Date.now() };
+    return data;
+  } catch {
+    return sheetResponseCache?.data || [];
+  }
+}
+
+interface EmployeeContext {
+  hrbpName?: string;
+  name?: string;
+  businessUnit?: string;
+  isInternal?: boolean;
+  consultora?: string;
+}
+
+function findSheetResponse(
+  responses: SheetResponse[],
+  categoria: string,
+  message: string,
+  employee: EmployeeContext
+): string | null {
+  const cat = categoria.toUpperCase();
+  const empUdn = (employee.businessUnit || "").trim().toUpperCase();
+  const empTipo = employee.isInternal ? "INTERNO" : "EXTERNO";
+  const empCons = (employee.consultora || "").trim().toUpperCase();
+  const msgLower = message.toLowerCase();
+
+  // Filtrar por categoría
+  const catMatches = responses.filter((r) => r.categoria === cat);
+  if (!catMatches.length) return null;
+
+  // Puntuar cada fila según qué tan específica es para el empleado
+  const scored: Array<{ respuesta: string; score: number }> = [];
+
+  for (const r of catMatches) {
+    let score = 0;
+
+    // — UDN matching —
+    if (r.udn === empUdn) {
+      score += 100;
+    } else if (r.udn === "GENERAL" || r.udn === "") {
+      score += 10;
+    } else {
+      continue; // no aplica a esta UDN
+    }
+
+    // — TIPO matching —
+    if (r.tipo === empTipo) {
+      score += 20;
+    } else if (r.tipo === "GENERAL" || r.tipo === "") {
+      score += 5;
+    } else {
+      continue; // no aplica a este tipo
+    }
+
+    // — CONSULTORA matching (solo si es EXTERNO) —
+    if (empTipo === "EXTERNO" && empCons) {
+      if (r.consultora === empCons) {
+        score += 30; // coincidencia exacta de consultora
+      } else if (r.consultora === "" || r.consultora === "GENERAL") {
+        score += 5; // genérico para externos
+      } else {
+        continue; // es de otra consultora
+      }
+    }
+
+    // — Relevancia del texto de la pregunta (bonus) —
+    const pregLower = r.preguntaTexto.toLowerCase();
+    const pregWords = pregLower.split(/[\s?¿,]+/).filter((w) => w.length > 3);
+    const matchCount = pregWords.filter((w) => msgLower.includes(w)).length;
+    score += matchCount * 3;
+
+    scored.push({ respuesta: r.respuesta, score });
+  }
+
+  if (!scored.length) return null;
+
+  // Retornar la respuesta con mayor puntaje
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].respuesta;
+}
 
 // ---------------------------------------------------------------------------
 // BASE DE CONOCIMIENTO HR — UPAX
@@ -984,7 +1114,7 @@ function detectCategory(message: string): string {
 function generateResponse(
   message: string,
   category?: string | null,
-  employee?: { hrbpName?: string; name?: string } | null
+  employee?: EmployeeContext | null
 ): { content: string; category: string } {
   const detectedCategory = category || detectCategory(message);
   const lower = message.toLowerCase();
@@ -1173,6 +1303,16 @@ router.post("/chat/message", async (req, res) => {
       .where(eq(employeesTable.id, req.session.employeeId))
       .limit(1);
 
+    const empCtx: EmployeeContext = employeeRecord
+      ? {
+          hrbpName:     employeeRecord.hrbpName ?? undefined,
+          name:         employeeRecord.name,
+          businessUnit: employeeRecord.businessUnit,
+          isInternal:   employeeRecord.isInternal,
+          consultora:   employeeRecord.consultora ?? undefined,
+        }
+      : {};
+
     const [userMsg] = await db
       .insert(chatMessagesTable)
       .values({
@@ -1183,11 +1323,24 @@ router.post("/chat/message", async (req, res) => {
       })
       .returning();
 
-    const { content: responseContent, category: responseCategory } = generateResponse(
-      message,
-      category,
-      employeeRecord ? { hrbpName: employeeRecord.hrbpName, name: employeeRecord.name } : null
-    );
+    // 1️⃣ Intentar respuesta del Sheet DB_RESPUESTAS (fuente primaria)
+    const detectedCategory = category || detectCategory(message);
+    const sheetResponses = await loadSheetResponses();
+    const sheetAnswer = findSheetResponse(sheetResponses, detectedCategory, message, empCtx);
+
+    let responseContent: string;
+    let responseCategory: string;
+
+    if (sheetAnswer) {
+      // Respuesta personalizada desde el Sheet
+      responseContent = sheetAnswer;
+      responseCategory = detectedCategory;
+    } else {
+      // 2️⃣ Fallback a la base de conocimiento del código
+      const fallback = generateResponse(message, category, empCtx);
+      responseContent = fallback.content;
+      responseCategory = fallback.category;
+    }
 
     const [assistantMsg] = await db
       .insert(chatMessagesTable)
