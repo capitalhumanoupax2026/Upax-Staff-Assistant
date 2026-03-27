@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, chatMessagesTable, employeesTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { getUncachableGoogleSheetClient } from "../lib/google-sheets.js";
 
 const router: IRouter = Router();
@@ -41,7 +41,8 @@ async function loadSheetResponses(): Promise<SheetResponse[]> {
 
     const rows = result.data.values || [];
     const data: SheetResponse[] = rows
-      .filter((row) => row[0] && row[6]) // requiere ID_KEY y RESPUESTA
+      // requiere ID_KEY y RESPUESTA, y que no sea una fila de encabezado duplicada
+      .filter((row) => row[0] && row[6] && String(row[0]).trim().toUpperCase() !== "ID_KEY")
       .map((row) => ({
         idKey:         String(row[0] || "").trim().toUpperCase(),
         categoria:     String(row[1] || "").trim().toUpperCase(),
@@ -124,6 +125,12 @@ function findSheetResponse(
     const matchCount = pregWords.filter((w) => msgLower.includes(w)).length;
     score += matchCount * 3;
 
+    // Penalizar fuertemente respuestas muy cortas (placeholders incompletos)
+    const respLen = r.respuesta.trim().length;
+    if (respLen < 50) {
+      score -= 200; // los completan sólo si no hay ninguna otra opción
+    }
+
     scored.push({ respuesta: r.respuesta, score });
   }
 
@@ -131,7 +138,10 @@ function findSheetResponse(
 
   // Retornar la respuesta con mayor puntaje
   scored.sort((a, b) => b.score - a.score);
-  return scored[0].respuesta;
+  // Solo usar si el score final es positivo (al menos una respuesta de calidad)
+  const best = scored[0];
+  if (best.score < 0) return null; // todas eran placeholders → fallback al código
+  return best.respuesta;
 }
 
 // ---------------------------------------------------------------------------
@@ -1282,8 +1292,57 @@ function generateResponse(
 // RUTAS
 // ---------------------------------------------------------------------------
 
+// Obtiene (o crea) el ID numérico del empleado en la tabla local de DB
+// usando su número de empleado como clave única. Esto permite almacenar
+// el historial de chat aunque el empleado venga de Google Sheets.
+interface SessionEmployee {
+  employeeNumber: string;
+  name: string;
+  businessUnit: string;
+  role: string;
+  hrbpName: string;
+  hrbpPhoto: string;
+  accentColor: string;
+  logoUrl: string;
+  isInternal: boolean;
+  consultora: string;
+}
+
+async function getOrCreateEmployeeDbId(sess: SessionEmployee): Promise<number> {
+  const [existing] = await db
+    .select({ id: employeesTable.id })
+    .from(employeesTable)
+    .where(eq(employeesTable.employeeNumber, sess.employeeNumber))
+    .limit(1);
+
+  if (existing) return existing.id;
+
+  const [created] = await db
+    .insert(employeesTable)
+    .values({
+      employeeNumber: sess.employeeNumber,
+      password:       "",
+      name:           sess.name,
+      businessUnit:   sess.businessUnit,
+      role:           sess.role || "Colaborador",
+      hrbpName:       sess.hrbpName || "",
+      hrbpPhoto:      sess.hrbpPhoto || "",
+      accentColor:    sess.accentColor || "#E85D04",
+      logoUrl:        sess.logoUrl || "/upax_logo_1774489769957.png",
+      isInternal:     sess.isInternal,
+      consultora:     sess.consultora || null,
+    })
+    .onConflictDoUpdate({
+      target: employeesTable.employeeNumber,
+      set: { name: sql`excluded.name` },
+    })
+    .returning({ id: employeesTable.id });
+
+  return created.id;
+}
+
 router.post("/chat/message", async (req, res) => {
-  if (!req.session.employeeId) {
+  if (!req.session.employee) {
     res.status(401).json({ error: "unauthorized", message: "No has iniciado sesión" });
     return;
   }
@@ -1296,27 +1355,24 @@ router.post("/chat/message", async (req, res) => {
   }
 
   try {
-    // Obtener datos del empleado para personalizar respuestas
-    const [employeeRecord] = await db
-      .select()
-      .from(employeesTable)
-      .where(eq(employeesTable.id, req.session.employeeId))
-      .limit(1);
+    const sess = req.session.employee;
 
-    const empCtx: EmployeeContext = employeeRecord
-      ? {
-          hrbpName:     employeeRecord.hrbpName ?? undefined,
-          name:         employeeRecord.name,
-          businessUnit: employeeRecord.businessUnit,
-          isInternal:   employeeRecord.isInternal,
-          consultora:   employeeRecord.consultora ?? undefined,
-        }
-      : {};
+    // Contexto del empleado — viene directo de la sesión (Google Sheets)
+    const empCtx: EmployeeContext = {
+      hrbpName:     sess.hrbpName || undefined,
+      name:         sess.name,
+      businessUnit: sess.businessUnit,      // p.ej. "UiX" → en findSheetResponse se normaliza
+      isInternal:   sess.isInternal,
+      consultora:   sess.consultora || undefined,
+    };
+
+    // Obtener o crear el ID del empleado en la DB para guardar historial
+    const employeeDbId = await getOrCreateEmployeeDbId(sess);
 
     const [userMsg] = await db
       .insert(chatMessagesTable)
       .values({
-        employeeId: req.session.employeeId,
+        employeeId: employeeDbId,
         role: "user",
         content: message,
         category: category || null,
@@ -1332,7 +1388,6 @@ router.post("/chat/message", async (req, res) => {
     let responseCategory: string;
 
     if (sheetAnswer) {
-      // Respuesta personalizada desde el Sheet
       responseContent = sheetAnswer;
       responseCategory = detectedCategory;
     } else {
@@ -1345,7 +1400,7 @@ router.post("/chat/message", async (req, res) => {
     const [assistantMsg] = await db
       .insert(chatMessagesTable)
       .values({
-        employeeId: req.session.employeeId,
+        employeeId: employeeDbId,
         role: "assistant",
         content: responseContent,
         category: responseCategory,
@@ -1375,16 +1430,18 @@ router.post("/chat/message", async (req, res) => {
 });
 
 router.get("/chat/history", async (req, res) => {
-  if (!req.session.employeeId) {
+  if (!req.session.employee) {
     res.status(401).json({ error: "unauthorized", message: "No has iniciado sesión" });
     return;
   }
 
   try {
+    const employeeDbId = await getOrCreateEmployeeDbId(req.session.employee);
+
     const messages = await db
       .select()
       .from(chatMessagesTable)
-      .where(eq(chatMessagesTable.employeeId, req.session.employeeId))
+      .where(eq(chatMessagesTable.employeeId, employeeDbId))
       .orderBy(asc(chatMessagesTable.timestamp))
       .limit(100);
 
