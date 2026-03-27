@@ -54,8 +54,10 @@ async function loadSheetResponses(): Promise<SheetResponse[]> {
       }));
 
     sheetResponseCache = { data, loadedAt: Date.now() };
+    console.log(`[Sheet] Cargadas ${data.length} respuestas desde DB_RESPUESTAS`);
     return data;
-  } catch {
+  } catch (err) {
+    console.error("[Sheet] Error cargando DB_RESPUESTAS:", err);
     return sheetResponseCache?.data || [];
   }
 }
@@ -1382,7 +1384,9 @@ router.post("/chat/message", async (req, res) => {
     // 1️⃣ Intentar respuesta del Sheet DB_RESPUESTAS (fuente primaria)
     const detectedCategory = category || detectCategory(message);
     const sheetResponses = await loadSheetResponses();
+    console.log(`[Chat] Empleado: ${sess.name} | UDN: ${sess.businessUnit} | Tipo: ${sess.isInternal ? "INTERNO" : "EXTERNO"} | Cat: ${detectedCategory} | Respuestas en Sheet: ${sheetResponses.length}`);
     const sheetAnswer = findSheetResponse(sheetResponses, detectedCategory, message, empCtx);
+    console.log(`[Chat] Sheet match: ${sheetAnswer ? "SÍ (" + sheetAnswer.substring(0, 60) + "...)" : "NO — usando fallback"}`)
 
     let responseContent: string;
     let responseCategory: string;
