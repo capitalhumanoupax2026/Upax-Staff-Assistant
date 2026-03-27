@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn, formatTime } from "@/lib/utils";
 import { motion } from "framer-motion";
 import type { ChatMessage } from "@/hooks/use-chat";
@@ -80,6 +81,7 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
             {/* Markdown content */}
             <div className={cn("pl-1 prose prose-sm max-w-none", isUser ? "prose-invert" : "")}>
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
                   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
@@ -87,6 +89,31 @@ export function ChatMessageBubble({ message, employee }: ChatMessageProps) {
                   li: ({ children }) => <li className="flex gap-1.5 items-start"><span className="opacity-40 mt-1">·</span><span>{children}</span></li>,
                   h2: ({ children }) => <h2 className="font-bold text-sm mb-1">{children}</h2>,
                   h3: ({ children }) => <h3 className="font-semibold text-sm mb-0.5">{children}</h3>,
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium underline underline-offset-2 break-all"
+                      style={{ color: isUser ? "rgba(255,255,255,0.9)" : employee.accentColor }}
+                    >
+                      {children}
+                      <svg className="inline w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  ),
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-2">
+                      <table className="text-xs border-collapse w-full">{children}</table>
+                    </div>
+                  ),
+                  th: ({ children }) => (
+                    <th className="border px-2 py-1 text-left font-semibold bg-gray-50">{children}</th>
+                  ),
+                  td: ({ children }) => (
+                    <td className="border px-2 py-1">{children}</td>
+                  ),
                 }}
               >
                 {message.content}
