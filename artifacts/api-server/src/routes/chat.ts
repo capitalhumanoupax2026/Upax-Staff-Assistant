@@ -1,66 +1,13 @@
 import { Router, type IRouter } from "express";
-import { db, chatMessagesTable, employeesTable } from "@workspace/db";
-import { eq, asc, sql } from "drizzle-orm";
-import { getUncachableGoogleSheetClient } from "../lib/google-sheets.js";
+import { db, chatMessagesTable, employeesTable, hrResponsesTable } from "@workspace/db";
+import { eq, asc, sql, and, or, ilike } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// RESPUESTAS DESDE GOOGLE SHEETS — DB_RESPUESTAS
-// Lee la hoja y selecciona la respuesta más específica según UDN/TIPO/CONSULTORA
-// Cache de 3 minutos para que los cambios en el Sheet se reflejen rápido
+// RESPUESTAS DESDE POSTGRESQL — hr_responses
+// Busca la respuesta más específica para el empleado según UDN/TIPO/CONSULTORA
 // ---------------------------------------------------------------------------
-
-interface SheetResponse {
-  idKey: string;
-  categoria: string;
-  preguntaTexto: string;
-  udn: string;
-  tipo: string;
-  consultora: string;
-  respuesta: string;
-}
-
-let sheetResponseCache: { data: SheetResponse[]; loadedAt: number } | null = null;
-const SHEET_RESPONSE_CACHE_MS = 3 * 60 * 1000; // 3 minutos
-
-async function loadSheetResponses(): Promise<SheetResponse[]> {
-  if (sheetResponseCache && Date.now() - sheetResponseCache.loadedAt < SHEET_RESPONSE_CACHE_MS) {
-    return sheetResponseCache.data;
-  }
-
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  if (!spreadsheetId) return [];
-
-  try {
-    const sheets = await getUncachableGoogleSheetClient();
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: "DB_RESPUESTAS!A2:G2000",
-    });
-
-    const rows = result.data.values || [];
-    const data: SheetResponse[] = rows
-      // requiere ID_KEY y RESPUESTA, y que no sea una fila de encabezado duplicada
-      .filter((row) => row[0] && row[6] && String(row[0]).trim().toUpperCase() !== "ID_KEY")
-      .map((row) => ({
-        idKey:         String(row[0] || "").trim().toUpperCase(),
-        categoria:     String(row[1] || "").trim().toUpperCase(),
-        preguntaTexto: String(row[2] || "").trim(),
-        udn:           String(row[3] || "").trim().toUpperCase(),
-        tipo:          String(row[4] || "").trim().toUpperCase(),
-        consultora:    String(row[5] || "").trim().toUpperCase(),
-        respuesta:     String(row[6] || "").trim(),
-      }));
-
-    sheetResponseCache = { data, loadedAt: Date.now() };
-    console.log(`[Sheet] Cargadas ${data.length} respuestas desde DB_RESPUESTAS`);
-    return data;
-  } catch (err) {
-    console.error("[Sheet] Error cargando DB_RESPUESTAS:", err);
-    return sheetResponseCache?.data || [];
-  }
-}
 
 interface EmployeeContext {
   hrbpName?: string;
@@ -70,80 +17,94 @@ interface EmployeeContext {
   consultora?: string;
 }
 
-function findSheetResponse(
-  responses: SheetResponse[],
+/** Mapea la categoría detectada a los posibles valores en la columna 'categoria' del DB */
+function getCategoryFilters(categoria: string) {
+  const c = categoria.toLowerCase();
+  if (c === "vacaciones") return [ilike(hrResponsesTable.categoria, "%vacacion%"), ilike(hrResponsesTable.categoria, "%prestacion%")];
+  if (c === "nomina") return [ilike(hrResponsesTable.categoria, "%nomin%"), ilike(hrResponsesTable.categoria, "%nómin%"), ilike(hrResponsesTable.categoria, "%imss%")];
+  if (c === "constancias") return [ilike(hrResponsesTable.categoria, "%constancia%")];
+  if (c === "beneficios") return [ilike(hrResponsesTable.categoria, "%beneficio%"), ilike(hrResponsesTable.categoria, "%prestacion%"), ilike(hrResponsesTable.categoria, "%prestación%")];
+  if (c === "permisos") return [ilike(hrResponsesTable.categoria, "%permiso%"), ilike(hrResponsesTable.categoria, "%licencia%")];
+  if (c === "seguros") return [ilike(hrResponsesTable.categoria, "%seguro%"), ilike(hrResponsesTable.categoria, "%sgmm%"), ilike(hrResponsesTable.categoria, "%smm%")];
+  if (c === "reglamento") return [ilike(hrResponsesTable.categoria, "%reglamento%"), ilike(hrResponsesTable.categoria, "%política%"), ilike(hrResponsesTable.categoria, "%politica%")];
+  // Para 'general' y otros, buscar en cualquier categoría activa
+  return [ilike(hrResponsesTable.categoria, `%${categoria}%`)];
+}
+
+async function findDbResponse(
   categoria: string,
   message: string,
   employee: EmployeeContext
-): string | null {
-  const cat = categoria.toUpperCase();
-  const empUdn = (employee.businessUnit || "").trim().toUpperCase();
-  const empTipo = employee.isInternal ? "INTERNO" : "EXTERNO";
-  const empCons = (employee.consultora || "").trim().toUpperCase();
-  const msgLower = message.toLowerCase();
+): Promise<string | null> {
+  try {
+    const catFilters = getCategoryFilters(categoria);
+    const whereClause = and(
+      eq(hrResponsesTable.activa, true),
+      or(...catFilters)
+    );
 
-  // Filtrar por categoría
-  const catMatches = responses.filter((r) => r.categoria === cat);
-  if (!catMatches.length) return null;
+    const rows = await db
+      .select()
+      .from(hrResponsesTable)
+      .where(whereClause);
 
-  // Puntuar cada fila según qué tan específica es para el empleado
-  const scored: Array<{ respuesta: string; score: number }> = [];
-
-  for (const r of catMatches) {
-    let score = 0;
-
-    // — UDN matching —
-    if (r.udn === empUdn) {
-      score += 100;
-    } else if (r.udn === "GENERAL" || r.udn === "") {
-      score += 10;
-    } else {
-      continue; // no aplica a esta UDN
+    if (!rows.length) {
+      console.log(`[DB] No se encontraron filas para categoría: ${categoria}`);
+      return null;
     }
 
-    // — TIPO matching —
-    if (r.tipo === empTipo) {
-      score += 20;
-    } else if (r.tipo === "GENERAL" || r.tipo === "") {
-      score += 5;
-    } else {
-      continue; // no aplica a este tipo
-    }
+    const empUdn = (employee.businessUnit || "").trim().toUpperCase();
+    const empTipo = employee.isInternal ? "INTERNO" : "EXTERNO";
+    const empCons = (employee.consultora || "").trim().toUpperCase();
+    const msgLower = message.toLowerCase();
 
-    // — CONSULTORA matching (solo si es EXTERNO) —
-    if (empTipo === "EXTERNO" && empCons) {
-      if (r.consultora === empCons) {
-        score += 30; // coincidencia exacta de consultora
-      } else if (r.consultora === "" || r.consultora === "GENERAL") {
-        score += 5; // genérico para externos
-      } else {
-        continue; // es de otra consultora
+    const scored: Array<{ respuesta: string; score: number }> = [];
+
+    for (const r of rows) {
+      let score = 0;
+      const rUdn = (r.udn || "").toUpperCase();
+      const rTipo = (r.tipo || "").toUpperCase();
+      const rCons = (r.consultora || "").toUpperCase();
+
+      // — UDN matching —
+      if (rUdn === empUdn) score += 100;
+      else if (rUdn === "GENERAL" || rUdn === "") score += 10;
+      else continue;
+
+      // — TIPO matching —
+      if (rTipo === empTipo) score += 20;
+      else if (rTipo === "GENERAL" || rTipo === "") score += 5;
+      else continue;
+
+      // — CONSULTORA matching (solo si es EXTERNO) —
+      if (empTipo === "EXTERNO" && empCons) {
+        if (rCons === empCons) score += 30;
+        else if (rCons === "" || rCons === "GENERAL") score += 5;
+        else continue;
       }
+
+      // — Relevancia del texto de la pregunta —
+      const pregLower = r.preguntaTexto.toLowerCase();
+      const pregWords = pregLower.split(/[\s?¿,]+/).filter((w) => w.length > 3);
+      const matchCount = pregWords.filter((w) => msgLower.includes(w)).length;
+      score += matchCount * 3;
+
+      // Penalizar respuestas muy cortas (placeholders)
+      if (r.respuesta.trim().length < 50) score -= 200;
+
+      scored.push({ respuesta: r.respuesta, score });
     }
 
-    // — Relevancia del texto de la pregunta (bonus) —
-    const pregLower = r.preguntaTexto.toLowerCase();
-    const pregWords = pregLower.split(/[\s?¿,]+/).filter((w) => w.length > 3);
-    const matchCount = pregWords.filter((w) => msgLower.includes(w)).length;
-    score += matchCount * 3;
-
-    // Penalizar fuertemente respuestas muy cortas (placeholders incompletos)
-    const respLen = r.respuesta.trim().length;
-    if (respLen < 50) {
-      score -= 200; // los completan sólo si no hay ninguna otra opción
-    }
-
-    scored.push({ respuesta: r.respuesta, score });
+    if (!scored.length) return null;
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (best.score < 0) return null;
+    console.log(`[DB] Match encontrado (score ${best.score}): ${best.respuesta.substring(0, 80)}...`);
+    return best.respuesta;
+  } catch (err) {
+    console.error("[DB] Error buscando respuesta en hr_responses:", err);
+    return null;
   }
-
-  if (!scored.length) return null;
-
-  // Retornar la respuesta con mayor puntaje
-  scored.sort((a, b) => b.score - a.score);
-  // Solo usar si el score final es positivo (al menos una respuesta de calidad)
-  const best = scored[0];
-  if (best.score < 0) return null; // todas eran placeholders → fallback al código
-  return best.respuesta;
 }
 
 // ---------------------------------------------------------------------------
@@ -1109,12 +1070,13 @@ Usa los botones de acceso rápido o escríbeme tu pregunta directamente.
 // ---------------------------------------------------------------------------
 function detectCategory(message: string): string {
   const lower = message.toLowerCase();
-  if (lower.includes("vacacion") || lower.includes("descanso") || lower.includes("días libre") || lower.includes("dias libre") || lower.includes("aniversario") || lower.includes("prima vacacional")) return "vacaciones";
-  if (lower.includes("nómin") || lower.includes("nomina") || lower.includes("sueldo") || lower.includes("pago") || lower.includes("recibo") || lower.includes("quincena") || lower.includes("isr") || lower.includes("deposito") || lower.includes("depósito")) return "nomina";
-  if (lower.includes("constanci") || lower.includes("carta de empleo") || lower.includes("infonavit") || lower.includes("fonacot") || lower.includes("recomendación") || lower.includes("recomendacion")) return "constancias";
+  if (lower.includes("vacacion") || lower.includes("prima vacacional") || lower.includes("días libre") || lower.includes("dias libre") || lower.includes("aniversario laboral")) return "vacaciones";
+  if (lower.includes("constanci") || lower.includes("carta de empleo") || lower.includes("carta de embajada") || lower.includes("carta para guarder") || lower.includes("carta patronal") || lower.includes("fonacot")) return "constancias";
   if (lower.includes("beneficio") || lower.includes("prestacion") || lower.includes("vale") || lower.includes("fondo de ahorro") || lower.includes("despensa") || lower.includes("bienestar") || lower.includes("capacitacion") || lower.includes("capacitación")) return "beneficios";
-  if (lower.includes("permiso") || lower.includes("ausencia") || lower.includes("licencia") || lower.includes("maternidad") || lower.includes("paternidad") || lower.includes("incapacidad")) return "permisos";
-  if (lower.includes("seguro") || lower.includes("médico") || lower.includes("medico") || lower.includes("dental") || lower.includes("salud") || lower.includes("hospital") || lower.includes("póliza") || lower.includes("poliza")) return "seguros";
+  if (lower.includes("sgmm") || lower.includes("smm") || lower.includes("póliza") || lower.includes("poliza") || lower.includes("seguro de gastos") || lower.includes("gastos médicos") || lower.includes("gastos medicos")) return "seguros";
+  if (lower.includes("seguro") || lower.includes("dental") || lower.includes("hospital") || lower.includes("salud")) return "seguros";
+  if (lower.includes("incapacidad") || lower.includes("imss") || lower.includes("nómin") || lower.includes("nomina") || lower.includes("sueldo") || lower.includes("salario") || lower.includes("recibo") || lower.includes("quincena") || lower.includes("isr") || lower.includes("deposito") || lower.includes("depósito") || lower.includes("infonavit")) return "nomina";
+  if (lower.includes("permiso") || lower.includes("ausencia") || lower.includes("licencia") || lower.includes("maternidad") || lower.includes("paternidad")) return "permisos";
   if (lower.includes("reglamento") || lower.includes("política") || lower.includes("politica") || lower.includes("horario") || lower.includes("home office") || lower.includes("vestimenta") || lower.includes("falta justificada")) return "reglamento";
   if (lower.includes("hrbp") || lower.includes("renuncia") || lower.includes("baja") || lower.includes("contrato") || lower.includes("queja") || lower.includes("sugerencia") || lower.includes("escalar")) return "general";
   return "default";
@@ -1381,21 +1343,20 @@ router.post("/chat/message", async (req, res) => {
       })
       .returning();
 
-    // 1️⃣ Intentar respuesta del Sheet DB_RESPUESTAS (fuente primaria)
+    // 1️⃣ Intentar respuesta de PostgreSQL hr_responses (fuente primaria)
     const detectedCategory = category || detectCategory(message);
-    const sheetResponses = await loadSheetResponses();
-    console.log(`[Chat] Empleado: ${sess.name} | UDN: ${sess.businessUnit} | Tipo: ${sess.isInternal ? "INTERNO" : "EXTERNO"} | Cat: ${detectedCategory} | Respuestas en Sheet: ${sheetResponses.length}`);
-    const sheetAnswer = findSheetResponse(sheetResponses, detectedCategory, message, empCtx);
-    console.log(`[Chat] Sheet match: ${sheetAnswer ? "SÍ (" + sheetAnswer.substring(0, 60) + "...)" : "NO — usando fallback"}`)
+    console.log(`[Chat] Empleado: ${sess.name} | UDN: ${sess.businessUnit} | Tipo: ${sess.isInternal ? "INTERNO" : "EXTERNO"} | Consultora: ${sess.consultora || "N/A"} | Cat: ${detectedCategory}`);
+    const dbAnswer = await findDbResponse(detectedCategory, message, empCtx);
 
     let responseContent: string;
     let responseCategory: string;
 
-    if (sheetAnswer) {
-      responseContent = sheetAnswer;
+    if (dbAnswer) {
+      responseContent = dbAnswer;
       responseCategory = detectedCategory;
     } else {
       // 2️⃣ Fallback a la base de conocimiento del código
+      console.log(`[Chat] Sin match en DB — usando fallback de código para: ${detectedCategory}`);
       const fallback = generateResponse(message, category, empCtx);
       responseContent = fallback.content;
       responseCategory = fallback.category;

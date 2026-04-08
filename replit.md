@@ -38,13 +38,27 @@ artifacts-monorepo/
 
 ## UPAX HR Chatbot Features
 
-- Futuristic dark-mode login page with Grupo UPAX branding
+- Futuristic login page with Grupo UPAX branding
 - Multi-brand dynamic identity: changes logo & accent color per business unit (UDN)
 - Welcome modal from HRBP after login
-- HR Chatbot with knowledge base: vacaciones, nómina, beneficios, permisos, constancias, seguros, reglamento
-- Quick action buttons for common HR queries
+- HR Chatbot with 2-tier knowledge base:
+  1. **Primary**: PostgreSQL `hr_responses` table — scored by UDN/TIPO/CONSULTORA
+  2. **Fallback**: Hardcoded knowledge base in chat.ts for common HR topics
+- Quick action buttons for categories + sub-question menus
 - Internal vs External (consultora) badge indicator
 - Session-based authentication with express-session
+- Markdown + link rendering in chat messages (remark-gfm)
+
+## Knowledge Base (hr_responses table)
+
+Columns: `pregunta_texto`, `respuesta`, `categoria`, `udn`, `consultora`, `tipo`, `activa`
+
+- **consultora values**: GENERAL, MASTER TALENT, NACH, SATORITECH
+- **tipo values**: GENERAL, INTERNO, EXTERNO
+- **udn values**: GENERAL, UIX, NACH, etc. (matches employee's businessUnit uppercased)
+- **categoria values**: Nómina, Vacaciones, Prestaciones, IMSS, Beneficios, Constancia laboral, SGMM y SMMm
+
+Scoring: UDN exact match +100 / GENERAL +10 | TIPO exact +20 / GENERAL +5 | CONSULTORA exact +30 / GENERAL +5 | text relevance +3/word | short response <50 chars -200
 
 ## Business Units & HRBPs
 
