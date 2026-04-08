@@ -7,12 +7,84 @@ import { QuickActions } from "@/components/QuickActions";
 import { CategoryMenu } from "@/components/CategoryMenu";
 import { ChatMessageBubble } from "@/components/ChatMessage";
 import { HRBPAvatar } from "@/components/HRBPAvatar";
-import { Send, LogOut, Loader2, Sparkles, Radio } from "lucide-react";
+import { Send, LogOut, Loader2, Sparkles, RotateCcw, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ─── Modal: Continuar o Nueva Conversación ────────────────────────────────────
+function ContinueSessionModal({
+  isOpen,
+  accentColor,
+  hrbpName,
+  onContinue,
+  onFresh,
+}: {
+  isOpen: boolean;
+  accentColor: string;
+  hrbpName: string;
+  onContinue: () => void;
+  onFresh: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center"
+          >
+            {/* Icono */}
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl"
+              style={{ background: `color-mix(in srgb, ${accentColor} 12%, white)` }}
+            >
+              💬
+            </div>
+
+            <h2 className="text-lg font-bold text-gray-900 mb-1">
+              ¡Bienvenido de vuelta!
+            </h2>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Tienes una conversación guardada con <span className="font-semibold text-gray-700">{hrbpName || "Capital Humano"}</span>.<br />
+              ¿Quieres continuar donde la dejaste o empezar de nuevo?
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={onContinue}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all active:scale-98"
+                style={{ background: `linear-gradient(135deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #000))` }}
+              >
+                <ArrowRight className="w-4 h-4" />
+                Continuar conversación
+              </button>
+              <button
+                onClick={onFresh}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-50 border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-100 transition-all active:scale-98"
+              >
+                <RotateCcw className="w-4 h-4 text-gray-400" />
+                Empezar de nuevo
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Dashboard Principal ──────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
-  const { messages, isSending, sendMessage } = useChat();
+  const { messages, isSending, hasHistory, historyLoaded, sendMessage, continueConversation, startFresh } = useChat();
   const [, setLocation] = useLocation();
   const [inputValue, setInputValue] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
@@ -23,12 +95,15 @@ export default function Dashboard() {
     if (!isLoading && !isAuthenticated) setLocation("/login");
   }, [isLoading, isAuthenticated, setLocation]);
 
+  // Mostrar modal de bienvenida solo si NO hay historial previo
   useEffect(() => {
-    if (user && !sessionStorage.getItem(`welcome_seen_${user.employeeNumber}`)) {
-      setShowWelcome(true);
-      sessionStorage.setItem(`welcome_seen_${user.employeeNumber}`, "true");
+    if (user && historyLoaded && messages.length === 0) {
+      if (!sessionStorage.getItem(`welcome_seen_${user.employeeNumber}`)) {
+        setShowWelcome(true);
+        sessionStorage.setItem(`welcome_seen_${user.employeeNumber}`, "true");
+      }
     }
-  }, [user]);
+  }, [user, historyLoaded, messages.length]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,7 +135,7 @@ export default function Dashboard() {
   };
 
   const consultoraBadge = user.isInternal
-    ? { label: "UPAX", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" }
+    ? { label: "UPAX Interno", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" }
     : { label: user.consultora || "Consultora", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" };
 
   return (
@@ -68,7 +143,17 @@ export default function Dashboard() {
       className="flex flex-col h-[100dvh] bg-background transition-colors duration-500"
       style={{ "--dyn-accent": user.accentColor } as React.CSSProperties}
     >
+      {/* Modal de bienvenida inicial (solo si es primera vez en la sesión) */}
       <WelcomeModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} employee={user} />
+
+      {/* Modal: ¿Continuar conversación o empezar de nuevo? */}
+      <ContinueSessionModal
+        isOpen={hasHistory === true}
+        accentColor={user.accentColor}
+        hrbpName={user.hrbpName}
+        onContinue={continueConversation}
+        onFresh={startFresh}
+      />
 
       {/* HEADER */}
       <header className="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm">
@@ -94,7 +179,7 @@ export default function Dashboard() {
 
             <div className="flex flex-col leading-none">
               <span className="text-[11px] text-gray-400">
-                Hola, <span className="font-semibold text-gray-800">{user.name.split(" ")[0]}</span>
+                Hola, <span className="font-semibold text-gray-800">{user.name.split(" ")[0]}</span> 👋
               </span>
             </div>
 
@@ -115,7 +200,6 @@ export default function Dashboard() {
 
           {/* Right: En Vivo + logout */}
           <div className="flex items-center gap-2">
-            {/* En Vivo */}
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -141,14 +225,14 @@ export default function Dashboard() {
         {/* Messages / Empty state */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
 
-          {messages.length === 0 && (
+          {historyLoaded && messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="h-full flex flex-col items-center justify-center text-center space-y-6"
             >
-              {/* HRBP Avatar — protagonista */}
+              {/* HRBP Avatar */}
               <div className="flex flex-col items-center gap-3">
                 <HRBPAvatar
                   photoUrl={user.hrbpPhoto}
@@ -178,10 +262,10 @@ export default function Dashboard() {
 
               <div className="max-w-sm">
                 <h2 className="text-xl font-display font-bold text-gray-900 mb-2">
-                  ¿En qué te puedo ayudar hoy?
+                  ¿En qué te puedo ayudar hoy? ✨
                 </h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Selecciona una categoría o escribe tu duda sobre vacaciones, nómina, beneficios y más.
+                  Selecciona una categoría o escríbeme tu duda sobre vacaciones, nómina, beneficios y más.
                 </p>
               </div>
 
@@ -198,7 +282,7 @@ export default function Dashboard() {
               <ChatMessageBubble key={msg.id || i} message={msg} employee={user} />
             ))}
 
-            {/* Typing indicator with HRBP avatar */}
+            {/* Typing indicator */}
             {isSending && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start mb-4 items-end gap-3">
                 <HRBPAvatar
@@ -229,7 +313,6 @@ export default function Dashboard() {
         <div className="py-3 border-t border-gray-100">
           <div className="space-y-2">
 
-            {/* Category sub-questions */}
             <CategoryMenu
               category={activeCategory}
               accentColor={user.accentColor}

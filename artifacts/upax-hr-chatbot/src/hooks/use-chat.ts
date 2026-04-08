@@ -30,33 +30,66 @@ const SESSION_KEY = "upax_employee_v3";
 export function useChat() {
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  // null = revisando, false = sin historial, true = tiene historial previo
+  const [hasHistory, setHasHistory] = useState<boolean | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   function handleAuthError() {
     sessionStorage.removeItem(SESSION_KEY);
     setLocation("/login");
   }
 
-  // Carga el historial al montar
+  // Al montar: solo verificar si hay historial, sin cargarlo aún
   useEffect(() => {
     apiFetch("/chat/history")
       .then((data) => {
-        setMessages(data.messages || []);
+        const msgs: ChatMessage[] = data.messages || [];
+        if (msgs.length > 0) {
+          // Guardar historial en memoria pero no mostrarlo todavía
+          setHasHistory(true);
+          // Guardamos los mensajes del servidor para cargar si el usuario quiere continuar
+          sessionStorage.setItem("upax_pending_history", JSON.stringify(msgs));
+        } else {
+          setHasHistory(false);
+          setHistoryLoaded(true);
+        }
       })
       .catch((err) => {
         if (err?.status === 401) {
           handleAuthError();
           return;
         }
-        setMessages([]);
-      })
-      .finally(() => setIsLoadingHistory(false));
+        setHasHistory(false);
+        setHistoryLoaded(true);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** El usuario quiere continuar la conversación anterior */
+  const continueConversation = () => {
+    const raw = sessionStorage.getItem("upax_pending_history");
+    if (raw) {
+      try {
+        setMessages(JSON.parse(raw));
+      } catch {
+        setMessages([]);
+      }
+      sessionStorage.removeItem("upax_pending_history");
+    }
+    setHasHistory(false);
+    setHistoryLoaded(true);
+  };
+
+  /** El usuario quiere empezar de cero */
+  const startFresh = () => {
+    sessionStorage.removeItem("upax_pending_history");
+    setMessages([]);
+    setHasHistory(false);
+    setHistoryLoaded(true);
+  };
+
   const sendMessage = (content: string, category?: string) => {
-    // Mostrar el mensaje del usuario inmediatamente
     const tempUserMsg: ChatMessage = {
       id: Date.now(),
       role: "user",
@@ -72,7 +105,6 @@ export function useChat() {
       body: JSON.stringify({ message: content, category }),
     })
       .then((data) => {
-        // Reemplazar el mensaje temporal con el real del servidor
         setMessages((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
           return [
@@ -87,12 +119,10 @@ export function useChat() {
           handleAuthError();
           return;
         }
-        // Si el servidor falla, mostrar mensaje de error amigable
         const errMsg: ChatMessage = {
           id: Date.now() + 1,
           role: "assistant",
-          content:
-            "Ocurrió un error al procesar tu pregunta. Por favor intenta de nuevo en un momento.",
+          content: "Ocurrió un error al procesar tu pregunta. Por favor intenta de nuevo en un momento.",
           timestamp: new Date().toISOString(),
           category: null,
         };
@@ -103,8 +133,11 @@ export function useChat() {
 
   return {
     messages,
-    isLoadingHistory,
+    hasHistory,
+    historyLoaded,
     isSending,
     sendMessage,
+    continueConversation,
+    startFresh,
   };
 }

@@ -1,16 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import {
-  Palmtree,
-  Receipt,
-  FileText,
-  BookOpen,
-  Clock,
-  Gift,
-  HeartPulse,
-  Scale,
-  MessageSquare
-} from "lucide-react";
+import { Palmtree, Receipt, FileText, HeartPulse, Gift } from "lucide-react";
 
 interface QuickActionsProps {
   onActionClick: (category: string) => void;
@@ -18,15 +8,11 @@ interface QuickActionsProps {
 }
 
 const actions = [
-  { icon: Palmtree,      label: "Mis Vacaciones",     category: "vacaciones" },
-  { icon: Receipt,       label: "Recibo de Nómina",    category: "nomina" },
-  { icon: FileText,      label: "Constancia Laboral",  category: "constancias" },
-  { icon: BookOpen,      label: "Manual de Procesos",  category: "reglamento" },
-  { icon: HeartPulse,    label: "Seguro Médico",       category: "seguros" },
-  { icon: Gift,          label: "Beneficios UPAX",     category: "beneficios" },
-  { icon: Clock,         label: "Permiso de Ausencia", category: "permisos" },
-  { icon: Scale,         label: "Reglamento Interno",  category: "reglamento" },
-  { icon: MessageSquare, label: "Contactar a mi HRBP", category: "general" },
+  { icon: Palmtree,   emoji: "🏖️", label: "Vacaciones",        category: "vacaciones" },
+  { icon: Receipt,    emoji: "💰", label: "Nómina & IMSS",      category: "nomina" },
+  { icon: FileText,   emoji: "📄", label: "Constancias",        category: "constancias" },
+  { icon: HeartPulse, emoji: "🏥", label: "Seguro SGMM",        category: "seguros" },
+  { icon: Gift,       emoji: "🎁", label: "Beneficios",         category: "beneficios" },
 ];
 
 export function QuickActions({ onActionClick, activeCategory }: QuickActionsProps) {
@@ -37,10 +23,10 @@ export function QuickActions({ onActionClick, activeCategory }: QuickActionsProp
           const isActive = activeCategory === action.category;
           return (
             <motion.button
-              key={action.label}
+              key={action.category}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
+              transition={{ delay: i * 0.05 }}
               onClick={() => onActionClick(action.category)}
               className="group flex items-center gap-2 px-4 py-2 rounded-xl border transition-all whitespace-nowrap text-sm font-medium active:scale-95 shadow-sm"
               style={{
@@ -49,10 +35,7 @@ export function QuickActions({ onActionClick, activeCategory }: QuickActionsProp
                 color: isActive ? "white" : "#4b5563",
               }}
             >
-              <action.icon
-                className="w-4 h-4 transition-opacity"
-                style={{ color: isActive ? "white" : "var(--dyn-accent)", opacity: isActive ? 1 : 0.65 }}
-              />
+              <span className="text-base leading-none">{action.emoji}</span>
               {action.label}
             </motion.button>
           );
