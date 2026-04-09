@@ -53,18 +53,23 @@ async function findDbResponse(
       return null;
     }
 
-    const empUdn = (employee.businessUnit || "").trim().toUpperCase();
+    // Normalizar: quitar espacios/guiones/acentos para comparar sin errores tipográficos
+    const normalize = (s: string) => s.trim().toUpperCase().replace(/[\s\-_]+/g, "");
+
+    const empUdn  = normalize(employee.businessUnit || "");
     const empTipo = employee.isInternal ? "INTERNO" : "EXTERNO";
-    const empCons = (employee.consultora || "").trim().toUpperCase();
+    const empCons = normalize(employee.consultora || "");
     const msgLower = message.toLowerCase();
+
+    console.log(`[DB] empUdn=${empUdn} | empTipo=${empTipo} | empCons=${empCons}`);
 
     const scored: Array<{ respuesta: string; score: number }> = [];
 
     for (const r of rows) {
       let score = 0;
-      const rUdn = (r.udn || "").toUpperCase();
-      const rTipo = (r.tipo || "").toUpperCase();
-      const rCons = (r.consultora || "").toUpperCase();
+      const rUdn  = normalize(r.udn  || "");
+      const rTipo = normalize(r.tipo || "");
+      const rCons = normalize(r.consultora || "");
 
       // — UDN matching —
       if (rUdn === empUdn) score += 100;
@@ -76,7 +81,7 @@ async function findDbResponse(
       else if (rTipo === "GENERAL" || rTipo === "") score += 5;
       else continue;
 
-      // — CONSULTORA matching (solo si es EXTERNO) —
+      // — CONSULTORA matching (solo si es EXTERNO y tiene consultora) —
       if (empTipo === "EXTERNO" && empCons) {
         if (rCons === empCons) score += 30;
         else if (rCons === "" || rCons === "GENERAL") score += 5;
