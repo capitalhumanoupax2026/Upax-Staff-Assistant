@@ -83,11 +83,12 @@ async function findDbResponse(
         else continue;
       }
 
-      // — Relevancia del texto de la pregunta —
+      // — Relevancia del texto de la pregunta (ratio-based: hasta 100 pts) —
       const pregLower = r.preguntaTexto.toLowerCase();
-      const pregWords = pregLower.split(/[\s?¿,]+/).filter((w) => w.length > 3);
+      const pregWords = pregLower.split(/[\s?¿,.]+/).filter((w) => w.length > 3);
       const matchCount = pregWords.filter((w) => msgLower.includes(w)).length;
-      score += matchCount * 3;
+      const matchRatio = pregWords.length > 0 ? matchCount / pregWords.length : 0;
+      score += Math.round(matchRatio * 100);
 
       // Penalizar respuestas muy cortas (placeholders)
       if (r.respuesta.trim().length < 50) score -= 200;
