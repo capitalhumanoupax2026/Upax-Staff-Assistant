@@ -1356,11 +1356,11 @@ router.post("/chat/message", async (req, res) => {
       responseContent = dbAnswer;
       responseCategory = detectedCategory;
     } else {
-      // 2️⃣ Fallback a la base de conocimiento del código
-      console.log(`[Chat] Sin match en DB — usando fallback de código para: ${detectedCategory}`);
-      const fallback = generateResponse(message, category, empCtx);
-      responseContent = fallback.content;
-      responseCategory = fallback.category;
+      // 2️⃣ Sin respuesta en DB → mensaje dirigido al HRBP
+      console.log(`[Chat] Sin match en DB para: ${detectedCategory}`);
+      const hrbp = empCtx.hrbpName || "tu HRBP";
+      responseContent = `Hola, por el momento no cuento con información específica sobre esa consulta en mi base de conocimiento.\n\nTe recomiendo contactar directamente a **${hrbp}**, quien podrá orientarte con detalle.\n\n¿Tienes alguna otra duda sobre vacaciones, nómina, constancias, beneficios o tu seguro SGMM?`;
+      responseCategory = detectedCategory;
     }
 
     const [assistantMsg] = await db
