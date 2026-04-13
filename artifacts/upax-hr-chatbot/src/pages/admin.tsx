@@ -278,7 +278,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("Todas");
-  const [filterCons, setFilterCons] = useState("Todas");
+  const [filterCons, setFilterCons] = useState("Todos");
   const [filterTipo, setFilterTipo] = useState("Todos");
 
   const [modal, setModal] = useState<Partial<HrResponse> | null | false>(false);
