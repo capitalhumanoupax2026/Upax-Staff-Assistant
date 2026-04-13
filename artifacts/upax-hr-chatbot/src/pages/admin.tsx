@@ -33,6 +33,12 @@ const CATEGORIAS = [
   "Vacaciones", "Prestaciones", "Nómina", "IMSS",
   "Constancia laboral", "SGMM y SMMm", "Beneficios",
 ];
+const CONSULTORAS = ["GENERAL", "MASTER TALENT", "NACH", "SATORITECH"];
+const UDNS = [
+  "GENERAL", "UIX", "MEXA CREATIVA", "ZEUS",
+  "HOUSE OF FILMS", "RESEARCHLAND", "MARKETING UNITED",
+  "NACH", "TRADE MARKETING",
+];
 const TIPOS = ["GENERAL", "INTERNO", "EXTERNO"];
 const ACCENT = "#E85A29";
 
@@ -219,10 +225,22 @@ function ResponseModal({
               </select>
             </Field>
             <Field label="Consultora">
-              <input value={form.consultora} onChange={e => set("consultora", e.target.value)} placeholder="GENERAL / MASTER TALENT / …" className={inputClass} />
+              <select value={CONSULTORAS.includes(form.consultora) ? form.consultora : "__custom"} onChange={e => set("consultora", e.target.value === "__custom" ? "" : e.target.value)} className={inputClass}>
+                {CONSULTORAS.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__custom">+ Agregar consultora</option>
+              </select>
+              {!CONSULTORAS.includes(form.consultora) && (
+                <input className={inputClass + " mt-1"} placeholder="Escribe la consultora" value={form.consultora} onChange={e => set("consultora", e.target.value)} />
+              )}
             </Field>
             <Field label="UDN">
-              <input value={form.udn} onChange={e => set("udn", e.target.value)} placeholder="GENERAL / UIX / RESEARCHLAND / …" className={inputClass} />
+              <select value={UDNS.includes(form.udn) ? form.udn : "__custom"} onChange={e => set("udn", e.target.value === "__custom" ? "" : e.target.value)} className={inputClass}>
+                {UDNS.map(u => <option key={u} value={u}>{u}</option>)}
+                <option value="__custom">+ Agregar UDN</option>
+              </select>
+              {!UDNS.includes(form.udn) && (
+                <input className={inputClass + " mt-1"} placeholder="Escribe el UDN" value={form.udn} onChange={e => set("udn", e.target.value)} />
+              )}
             </Field>
           </div>
 
