@@ -207,7 +207,7 @@ function ResponseModal({
               <select value={form.categoria} onChange={e => set("categoria", e.target.value)} className={inputClass}>
                 <option value="">Selecciona…</option>
                 {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__custom">Otra…</option>
+                <option value="__custom">+ Agregar categoría</option>
               </select>
               {form.categoria === "__custom" && (
                 <input className={inputClass + " mt-1"} placeholder="Escribe la categoría" onBlur={e => set("categoria", e.target.value)} />
