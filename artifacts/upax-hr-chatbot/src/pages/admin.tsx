@@ -33,12 +33,7 @@ const CATEGORIAS = [
   "Vacaciones", "Prestaciones", "Nómina", "IMSS",
   "Constancia laboral", "SGMM y SMMm", "Beneficios",
 ];
-const CONSULTORAS = ["GENERAL", "MASTER TALENT", "NACH", "SATORITECH"];
-const UDNS = [
-  "GENERAL", "UIX", "MEXA CREATIVA", "ZEUS",
-  "HOUSE OF FILMS", "RESEARCHLAND", "MARKETING UNITED",
-  "NACH", "TRADE MARKETING",
-];
+const EMPLEADORES = ["GENERAL", "NACH", "MASTER TALENT", "SATORITECH"];
 const TIPOS = ["GENERAL", "INTERNO", "EXTERNO"];
 const ACCENT = "#E85A29";
 
@@ -220,13 +215,9 @@ function ResponseModal({
               )}
             </Field>
             <Field label="Empleador">
-              <select value={UDNS.includes(form.udn) ? form.udn : "__custom"} onChange={e => set("udn", e.target.value === "__custom" ? "" : e.target.value)} className={inputClass}>
-                {UDNS.map(u => <option key={u} value={u}>{u}</option>)}
-                <option value="__custom">+ Agregar empleador</option>
+              <select value={form.consultora} onChange={e => set("consultora", e.target.value)} className={inputClass}>
+                {EMPLEADORES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
-              {!UDNS.includes(form.udn) && (
-                <input className={inputClass + " mt-1"} placeholder="Escribe el empleador" value={form.udn} onChange={e => set("udn", e.target.value)} />
-              )}
             </Field>
           </div>
 
@@ -364,12 +355,11 @@ export default function AdminPage() {
   if (!authed) return <PinScreen onSuccess={handleAuth} />;
 
   // Filtros
-  const consultoraOptions = ["Todas", ...CONSULTORAS];
   const categoriaOptions = ["Todas", ...CATEGORIAS];
 
   const filtered = rows.filter(r => {
     if (filterCat !== "Todas" && r.categoria !== filterCat) return false;
-    if (filterCons !== "Todos" && r.udn !== filterCons) return false;
+    if (filterCons !== "Todos" && r.consultora !== filterCons) return false;
     if (filterTipo !== "Todos" && r.tipo !== filterTipo) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -467,7 +457,7 @@ export default function AdminPage() {
           </select>
           <select value={filterCons} onChange={e => setFilterCons(e.target.value)} className={selectClass}>
             <option value="Todos">Todos los empleadores</option>
-            {UDNS.map(u => <option key={u} value={u}>{u}</option>)}
+            {EMPLEADORES.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
 
           {/* Agregar */}
@@ -511,7 +501,7 @@ export default function AdminPage() {
                         {row.categoria}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
-                        {row.udn}
+                        {row.consultora}
                       </span>
                       {!row.activa && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
