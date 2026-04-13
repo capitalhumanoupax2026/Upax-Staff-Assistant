@@ -219,27 +219,13 @@ function ResponseModal({
                 <input className={inputClass + " mt-1"} placeholder="Escribe la categoría" onBlur={e => set("categoria", e.target.value)} />
               )}
             </Field>
-            <Field label="Tipo">
-              <select value={form.tipo} onChange={e => set("tipo", e.target.value)} className={inputClass}>
-                {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </Field>
-            <Field label="Consultora">
-              <select value={CONSULTORAS.includes(form.consultora) ? form.consultora : "__custom"} onChange={e => set("consultora", e.target.value === "__custom" ? "" : e.target.value)} className={inputClass}>
-                {CONSULTORAS.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__custom">+ Agregar consultora</option>
-              </select>
-              {!CONSULTORAS.includes(form.consultora) && (
-                <input className={inputClass + " mt-1"} placeholder="Escribe la consultora" value={form.consultora} onChange={e => set("consultora", e.target.value)} />
-              )}
-            </Field>
-            <Field label="UDN">
+            <Field label="Empleador">
               <select value={UDNS.includes(form.udn) ? form.udn : "__custom"} onChange={e => set("udn", e.target.value === "__custom" ? "" : e.target.value)} className={inputClass}>
                 {UDNS.map(u => <option key={u} value={u}>{u}</option>)}
-                <option value="__custom">+ Agregar UDN</option>
+                <option value="__custom">+ Agregar empleador</option>
               </select>
               {!UDNS.includes(form.udn) && (
-                <input className={inputClass + " mt-1"} placeholder="Escribe el UDN" value={form.udn} onChange={e => set("udn", e.target.value)} />
+                <input className={inputClass + " mt-1"} placeholder="Escribe el empleador" value={form.udn} onChange={e => set("udn", e.target.value)} />
               )}
             </Field>
           </div>
@@ -383,7 +369,7 @@ export default function AdminPage() {
 
   const filtered = rows.filter(r => {
     if (filterCat !== "Todas" && r.categoria !== filterCat) return false;
-    if (filterCons !== "Todas" && r.consultora !== filterCons) return false;
+    if (filterCons !== "Todos" && r.udn !== filterCons) return false;
     if (filterTipo !== "Todos" && r.tipo !== filterTipo) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -480,10 +466,8 @@ export default function AdminPage() {
             {categoriaOptions.map(c => <option key={c}>{c}</option>)}
           </select>
           <select value={filterCons} onChange={e => setFilterCons(e.target.value)} className={selectClass}>
-            {consultoraOptions.map(c => <option key={c}>{c}</option>)}
-          </select>
-          <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} className={selectClass}>
-            {["Todos", ...TIPOS].map(t => <option key={t}>{t}</option>)}
+            <option value="Todos">Todos los empleadores</option>
+            {UDNS.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
 
           {/* Agregar */}
@@ -526,19 +510,9 @@ export default function AdminPage() {
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
                         {row.categoria}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${row.tipo === "EXTERNO" ? "bg-blue-50 text-blue-700 border-blue-200" : row.tipo === "INTERNO" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}>
-                        {row.tipo}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
+                        {row.udn}
                       </span>
-                      {row.consultora !== "GENERAL" && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                          {row.consultora}
-                        </span>
-                      )}
-                      {row.udn !== "GENERAL" && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
-                          UDN: {row.udn}
-                        </span>
-                      )}
                       {!row.activa && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
                           Desactivada
