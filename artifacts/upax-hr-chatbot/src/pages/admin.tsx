@@ -378,8 +378,8 @@ export default function AdminPage() {
   if (!authed) return <PinScreen onSuccess={handleAuth} />;
 
   // Filtros
-  const consultoraOptions = ["Todas", ...Array.from(new Set(rows.map(r => r.consultora)))];
-  const categoriaOptions = ["Todas", ...Array.from(new Set(rows.map(r => r.categoria)))];
+  const consultoraOptions = ["Todas", ...CONSULTORAS];
+  const categoriaOptions = ["Todas", ...CATEGORIAS];
 
   const filtered = rows.filter(r => {
     if (filterCat !== "Todas" && r.categoria !== filterCat) return false;
