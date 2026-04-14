@@ -33,7 +33,7 @@ const CATEGORIAS = [
   "Vacaciones", "Prestaciones", "Nómina", "IMSS",
   "Constancia laboral", "SGMM y SMMm", "Beneficios",
 ];
-const EMPLEADORES = ["GENERAL", "NACH", "MASTER TALENT", "SATORITECH"];
+const EMPLEADORES = ["GENERAL", "NACH", "SATORITECH", "MASTER TALENT", "INTERNO"];
 const TIPOS = ["GENERAL", "INTERNO", "EXTERNO"];
 const ACCENT = "#E85A29";
 
