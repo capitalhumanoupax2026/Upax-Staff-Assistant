@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "installCommand": "npm install -g pnpm@10 --quiet && pnpm install",
+  "buildCommand": "pnpm --filter @workspace/upax-hr-chatbot run build",
+  "outputDirectory": "artifacts/upax-hr-chatbot/dist/public",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+      ]
+    }
+  ]
+}
