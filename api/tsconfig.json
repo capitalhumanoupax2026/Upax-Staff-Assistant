@@ -1,8 +1,0 @@
-{
-  "extends": "../artifacts/api-server/tsconfig.json",
-  "compilerOptions": {
-    "rootDir": "..",
-    "outDir": "../.vercel/output/functions/api"
-  },
-  "include": ["./**/*.ts", "../artifacts/api-server/src/**/*.ts", "../lib/**/*.ts"]
-}
